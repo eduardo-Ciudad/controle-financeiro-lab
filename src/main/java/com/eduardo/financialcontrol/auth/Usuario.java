@@ -32,7 +32,7 @@ public class Usuario {
     @Column(name = "criado_em", nullable = false, updatable = false)
     private OffsetDateTime criadoEm = OffsetDateTime.now();
 
-    public Usuario(String nome, String email, String senhaHash, Role role) {
+    public Usuario(String nome, String email, String senhaHash) {
         this.nome = nome;
         this.email = email;
         this.senhaHash = senhaHash;
