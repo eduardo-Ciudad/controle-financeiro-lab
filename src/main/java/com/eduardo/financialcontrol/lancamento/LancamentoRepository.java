@@ -21,7 +21,9 @@ public interface LancamentoRepository extends JpaRepository<Lancamento, Long> {
             """)
     BigDecimal calcularSaldo(@Param("clienteId") Long clienteId);
 
-    Optional<Lancamento> findByEstornoDe(Lancamento lancamento);
+    Optional<Lancamento> findByIdAndUsuarioId(Long id, Long usuarioId);
+
+    Optional<Lancamento> findByEstornoDeAndUsuarioId(Lancamento lancamento, Long usuarioId);
 
     Page<Lancamento> findByClienteIdOrderByDataCompetenciaAscIdAsc(Long clienteId, Pageable pageable);
 
@@ -37,6 +39,6 @@ public interface LancamentoRepository extends JpaRepository<Lancamento, Long> {
             """, nativeQuery = true)
     List<Object[]> resumoMensal();
 
-    List<Lancamento> findByCategoriaAndDataCompetenciaBetween(
-            Categoria categoria, LocalDate inicio, LocalDate fim);
+    List<Lancamento> findByCategoriaAndDataCompetenciaBetweenAndUsuarioId(
+            Categoria categoria, LocalDate inicio, LocalDate fim, Long usuarioId);
 }

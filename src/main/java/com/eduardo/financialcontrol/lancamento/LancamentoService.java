@@ -9,6 +9,7 @@ import com.eduardo.financialcontrol.estoque.OrigemMovimentacao;
 import com.eduardo.financialcontrol.lancamento.dto.*;
 import com.eduardo.financialcontrol.produto.Produto;
 import com.eduardo.financialcontrol.produto.ProdutoService;
+import com.eduardo.financialcontrol.security.UsuarioAutenticadoService;
 import com.eduardo.financialcontrol.shared.exception.RecursoNaoEncontradoException;
 import com.eduardo.financialcontrol.shared.exception.RegraDeNegocioException;
 import lombok.RequiredArgsConstructor;
@@ -31,6 +32,7 @@ public class LancamentoService {
     private final ProdutoService produtoService;
     private final EstoqueService estoqueService;
     private final MovimentacaoEstoqueRepository movimentacaoEstoqueRepository;
+    private final UsuarioAutenticadoService usuarioAutenticadoService;
 
     @Transactional
     public LancamentoResponse registrarCompra(Long clienteId, CompraRequest request) {
@@ -63,6 +65,7 @@ public class LancamentoService {
         lancamento.setValor(valorTotal);
         lancamento.setDataCompetencia(request.dataCompetencia());
         lancamento.setDescricao(request.descricao());
+        lancamento.setUsuario(usuarioAutenticadoService.getUsuario());
         lancamento = lancamentoRepository.save(lancamento);
 
         for (int i = 0; i < produtos.size(); i++) {
@@ -86,18 +89,20 @@ public class LancamentoService {
         lancamento.setDataCompetencia(request.dataCompetencia());
         lancamento.setDescricao(request.descricao());
         lancamento.setFormaPagamento(request.formaPagamento());
+        lancamento.setUsuario(usuarioAutenticadoService.getUsuario());
         return montarResponse(lancamentoRepository.save(lancamento));
     }
 
     @Transactional
     public LancamentoResponse estornar(Long lancamentoId, EstornoRequest request) {
-        Lancamento original = lancamentoRepository.findById(lancamentoId)
+        Long usuarioId = usuarioAutenticadoService.getUsuarioId();
+        Lancamento original = lancamentoRepository.findByIdAndUsuarioId(lancamentoId, usuarioId)
                 .orElseThrow(() -> new RecursoNaoEncontradoException("Lançamento não encontrado: " + lancamentoId));
 
         if (original.getCategoria() == Categoria.ESTORNO) {
             throw new RegraDeNegocioException("Não é possível estornar um lançamento de estorno.");
         }
-        if (lancamentoRepository.findByEstornoDe(original).isPresent()) {
+        if (lancamentoRepository.findByEstornoDeAndUsuarioId(original, usuarioId).isPresent()) {
             throw new RegraDeNegocioException("Lançamento já foi estornado.");
         }
 
@@ -112,6 +117,7 @@ public class LancamentoService {
         estorno.setDataCompetencia(dataCompetencia);
         estorno.setDescricao(request.descricao() != null ? request.descricao() : "Estorno de lançamento #" + original.getId());
         estorno.setEstornoDe(original);
+        estorno.setUsuario(usuarioAutenticadoService.getUsuario());
         estorno = lancamentoRepository.save(estorno);
 
         if (original.getCategoria() == Categoria.COMPRA) {
@@ -153,6 +159,7 @@ public class LancamentoService {
         lancamento.setDataCompetencia(request.dataCompetencia());
         lancamento.setDescricao("Venda: " + request.quantidade() + "x " + produto.getNome());
         lancamento.setFormaPagamento(request.formaPagamento());
+        lancamento.setUsuario(usuarioAutenticadoService.getUsuario());
         lancamento = lancamentoRepository.save(lancamento);
 
         // 2. Saída de estoque
@@ -172,6 +179,7 @@ public class LancamentoService {
             pagamento.setDataCompetencia(request.dataCompetencia());
             pagamento.setDescricao("Pagamento ref. venda: " + request.quantidade() + "x " + produto.getNome());
             pagamento.setFormaPagamento(request.formaPagamento());
+            pagamento.setUsuario(usuarioAutenticadoService.getUsuario());
             lancamentoRepository.save(pagamento);
         }
 
@@ -181,7 +189,7 @@ public class LancamentoService {
     @Transactional(readOnly = true)
     public LancamentoResponse buscarPorId(Long id) {
         return montarResponse(
-                lancamentoRepository.findById(id)
+                lancamentoRepository.findByIdAndUsuarioId(id, usuarioAutenticadoService.getUsuarioId())
                         .orElseThrow(() -> new RecursoNaoEncontradoException("Lançamento não encontrado: " + id))
         );
     }
@@ -202,7 +210,8 @@ public class LancamentoService {
         LocalDate fim = ym.atEndOfMonth();
 
         List<Lancamento> vendas = lancamentoRepository
-                .findByCategoriaAndDataCompetenciaBetween(Categoria.COMPRA, inicio, fim);
+                .findByCategoriaAndDataCompetenciaBetweenAndUsuarioId(
+                        Categoria.COMPRA, inicio, fim, usuarioAutenticadoService.getUsuarioId());
 
         return vendas.stream().map(l -> {
             List<ItemVendaResponse> itens = movimentacaoEstoqueRepository
