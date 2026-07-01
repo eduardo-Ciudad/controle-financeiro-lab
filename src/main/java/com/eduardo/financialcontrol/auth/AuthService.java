@@ -28,7 +28,7 @@ public class AuthService {
                     return new org.springframework.security.authentication.BadCredentialsException("Credenciais inválidas");
                 });
 
-        String token = jwtService.gerarToken(usuario.getEmail(), usuario.getRole().name());
+        String token = jwtService.gerarToken(usuario.getEmail());
         return new TokenResponse(token, jwtService.calcularExpiracao());
     }
 }
