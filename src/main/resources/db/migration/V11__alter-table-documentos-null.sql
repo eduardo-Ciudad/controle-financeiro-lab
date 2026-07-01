@@ -1,0 +1,2 @@
+ALTER TABLE clientes ALTER COLUMN documento DROP NOT NULL;
+ALTER TABLE fornecedores ALTER COLUMN documento DROP NOT NULL;
