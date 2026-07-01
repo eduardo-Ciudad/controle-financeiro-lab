@@ -13,7 +13,9 @@ import java.util.Optional;
 
 public interface LancamentoFornecedorRepository extends JpaRepository<LancamentoFornecedor, Long> {
 
-    Optional<LancamentoFornecedor> findByEstornoDe(LancamentoFornecedor lancamento);
+    Optional<LancamentoFornecedor> findByIdAndUsuarioId(Long id, Long usuarioId);
+
+    Optional<LancamentoFornecedor> findByEstornoDeAndUsuarioId(LancamentoFornecedor lancamento, Long usuarioId);
 
     List<LancamentoFornecedor> findByDataCompetenciaOrderByIdAsc(LocalDate dataCompetencia);
 
@@ -22,8 +24,10 @@ public interface LancamentoFornecedorRepository extends JpaRepository<Lancamento
                                      THEN l.valor ELSE -l.valor END), 0)
             FROM LancamentoFornecedor l
             WHERE l.fornecedor.id = :fornecedorId
+            AND l.usuario.id = :usuarioId
             """)
-    BigDecimal calcularSaldoAPagar(@Param("fornecedorId") Long fornecedorId);
+    BigDecimal calcularSaldoAPagar(@Param("fornecedorId") Long fornecedorId, @Param("usuarioId") Long usuarioId);
 
-    Page<LancamentoFornecedor> findByFornecedorIdOrderByDataCompetenciaAscIdAsc(Long fornecedorId, Pageable pageable);
+    Page<LancamentoFornecedor> findByFornecedorIdAndUsuarioIdOrderByDataCompetenciaAscIdAsc(
+            Long fornecedorId, Long usuarioId, Pageable pageable);
 }

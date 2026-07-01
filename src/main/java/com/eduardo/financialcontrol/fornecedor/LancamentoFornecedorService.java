@@ -17,6 +17,7 @@ import com.eduardo.financialcontrol.lancamento.Natureza;
 import com.eduardo.financialcontrol.produto.Produto;
 import com.eduardo.financialcontrol.produto.ProdutoService;
 import com.eduardo.financialcontrol.saldo.SituacaoSaldo;
+import com.eduardo.financialcontrol.security.UsuarioAutenticadoService;
 import com.eduardo.financialcontrol.shared.exception.RecursoNaoEncontradoException;
 import com.eduardo.financialcontrol.shared.exception.RegraDeNegocioException;
 import lombok.RequiredArgsConstructor;
@@ -41,6 +42,7 @@ public class LancamentoFornecedorService {
     private final ProdutoService produtoService;
     private final EstoqueService estoqueService;
     private final MovimentacaoEstoqueRepository movimentacaoEstoqueRepository;
+    private final UsuarioAutenticadoService usuarioAutenticadoService;
 
     @Transactional
     public LancamentoFornecedorResponse registrarCompra(Long fornecedorId, CompraFornecedorRequest request) {
@@ -62,6 +64,7 @@ public class LancamentoFornecedorService {
         lancamento.setValor(valorTotal);
         lancamento.setDataCompetencia(request.dataCompetencia());
         lancamento.setDescricao(request.descricao());
+        lancamento.setUsuario(usuarioAutenticadoService.getUsuario());
         lancamento = lancamentoFornecedorRepository.save(lancamento);
 
         for (int i = 0; i < produtos.size(); i++) {
@@ -85,18 +88,20 @@ public class LancamentoFornecedorService {
         lancamento.setDataCompetencia(request.dataCompetencia());
         lancamento.setDescricao(request.descricao());
         lancamento.setFormaPagamento(request.formaPagamento());
+        lancamento.setUsuario(usuarioAutenticadoService.getUsuario());
         return montarResponse(lancamentoFornecedorRepository.save(lancamento));
     }
 
     @Transactional
     public LancamentoFornecedorResponse estornar(Long lancamentoId, EstornoFornecedorRequest request) {
-        LancamentoFornecedor original = lancamentoFornecedorRepository.findById(lancamentoId)
+        Long usuarioId = usuarioAutenticadoService.getUsuarioId();
+        LancamentoFornecedor original = lancamentoFornecedorRepository.findByIdAndUsuarioId(lancamentoId, usuarioId)
                 .orElseThrow(() -> new RecursoNaoEncontradoException("Lançamento de fornecedor não encontrado: " + lancamentoId));
 
         if (original.getCategoria() == Categoria.ESTORNO) {
             throw new RegraDeNegocioException("Não é possível estornar um lançamento de estorno.");
         }
-        if (lancamentoFornecedorRepository.findByEstornoDe(original).isPresent()) {
+        if (lancamentoFornecedorRepository.findByEstornoDeAndUsuarioId(original, usuarioId).isPresent()) {
             throw new RegraDeNegocioException("Lançamento já foi estornado.");
         }
 
@@ -123,6 +128,7 @@ public class LancamentoFornecedorService {
         estorno.setDataCompetencia(dataCompetencia);
         estorno.setDescricao(request.descricao() != null ? request.descricao() : "Estorno de lançamento #" + original.getId());
         estorno.setEstornoDe(original);
+        estorno.setUsuario(usuarioAutenticadoService.getUsuario());
         estorno = lancamentoFornecedorRepository.save(estorno);
 
         for (MovimentacaoEstoque item : itensOriginais) {
@@ -136,7 +142,8 @@ public class LancamentoFornecedorService {
     @Transactional(readOnly = true)
     public SaldoFornecedorResponse saldoAPagar(Long fornecedorId) {
         Fornecedor fornecedor = fornecedorService.encontrarOuLancar(fornecedorId);
-        BigDecimal saldo = lancamentoFornecedorRepository.calcularSaldoAPagar(fornecedorId);
+        BigDecimal saldo = lancamentoFornecedorRepository
+                .calcularSaldoAPagar(fornecedorId, usuarioAutenticadoService.getUsuarioId());
         SituacaoSaldo situacao;
         if (saldo.compareTo(BigDecimal.ZERO) > 0) {
             situacao = SituacaoSaldo.DEVEDOR;
@@ -152,7 +159,8 @@ public class LancamentoFornecedorService {
     public Page<LinhaExtratoFornecedor> extrato(Long fornecedorId, Pageable pageable) {
         fornecedorService.encontrarOuLancar(fornecedorId);
         Page<LancamentoFornecedor> page = lancamentoFornecedorRepository
-                .findByFornecedorIdOrderByDataCompetenciaAscIdAsc(fornecedorId, pageable);
+                .findByFornecedorIdAndUsuarioIdOrderByDataCompetenciaAscIdAsc(
+                        fornecedorId, usuarioAutenticadoService.getUsuarioId(), pageable);
 
         BigDecimal acumulado = BigDecimal.ZERO;
         List<LinhaExtratoFornecedor> linhas = new ArrayList<>();
@@ -174,7 +182,7 @@ public class LancamentoFornecedorService {
     @Transactional(readOnly = true)
     public LancamentoFornecedorResponse buscarPorId(Long id) {
         return montarResponse(
-                lancamentoFornecedorRepository.findById(id)
+                lancamentoFornecedorRepository.findByIdAndUsuarioId(id, usuarioAutenticadoService.getUsuarioId())
                         .orElseThrow(() -> new RecursoNaoEncontradoException("Lançamento de fornecedor não encontrado: " + id))
         );
     }
