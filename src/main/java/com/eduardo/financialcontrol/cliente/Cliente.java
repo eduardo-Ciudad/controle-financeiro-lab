@@ -1,5 +1,6 @@
 package com.eduardo.financialcontrol.cliente;
 
+import com.eduardo.financialcontrol.auth.Usuario;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -16,6 +17,11 @@ public class Cliente {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "usuario_id", nullable = false)
+    private Usuario usuario;
+
 
     @Setter
     @Column(nullable = false, length = 120)
