@@ -25,9 +25,6 @@ public class Usuario {
     @Column(name = "senha_hash", nullable = false)
     private String senhaHash;
 
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 20)
-    private Role role = Role.USER;
 
     @Column(nullable = false)
     private Boolean ativo = true;
@@ -39,6 +36,5 @@ public class Usuario {
         this.nome = nome;
         this.email = email;
         this.senhaHash = senhaHash;
-        this.role = role;
     }
 }
