@@ -1,5 +1,6 @@
 package com.eduardo.financialcontrol.lancamento;
 
+import com.eduardo.financialcontrol.auth.Usuario;
 import com.eduardo.financialcontrol.cliente.Cliente;
 import jakarta.persistence.*;
 import lombok.Getter;
@@ -18,6 +19,10 @@ public class Lancamento {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "usuario_id", nullable = false)
+    private Usuario usuario;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "cliente_id", nullable = false)
