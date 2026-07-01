@@ -10,18 +10,22 @@ import java.util.Optional;
 
 public interface ClienteRepository extends JpaRepository<Cliente, Long> {
 
-    Optional<Cliente> findByDocumento(String documento);
+    Optional<Cliente> findByIdAndUsuarioId(Long id, Long usuarioId);
 
-    Page<Cliente> findByAtivoTrue(Pageable pageable);
+    Optional<Cliente> findByDocumentoAndUsuarioId(String documento, Long usuarioId);
+
+    Page<Cliente> findByAtivoTrueAndUsuarioId(Long usuarioId, Pageable pageable);
 
     @Query("""
 SELECT c
 FROM Cliente c
 WHERE c.ativo = true
+AND c.usuario.id = :usuarioId
 AND LOWER(c.nome) LIKE LOWER(CONCAT('%', :nome, '%'))
 """)
     Page<Cliente> buscarAtivosPorNome(
             @Param("nome") String nome,
+            @Param("usuarioId") Long usuarioId,
             Pageable pageable);
 
     @Query("""
@@ -29,6 +33,7 @@ SELECT c
 FROM Cliente c
 LEFT JOIN Lancamento l ON l.cliente = c
 WHERE c.ativo = true
+AND c.usuario.id = :usuarioId
 GROUP BY c
 HAVING COALESCE(
 SUM(
@@ -39,13 +44,16 @@ ELSE -l.valor
 END
 ),0) > 0
 """)
-    Page<Cliente> buscarAtivosComDivida(Pageable pageable);
+    Page<Cliente> buscarAtivosComDivida(
+            @Param("usuarioId") Long usuarioId,
+            Pageable pageable);
 
     @Query("""
 SELECT c
 FROM Cliente c
 LEFT JOIN Lancamento l ON l.cliente = c
 WHERE c.ativo = true
+AND c.usuario.id = :usuarioId
 AND LOWER(c.nome) LIKE LOWER(CONCAT('%', :nome, '%'))
 GROUP BY c
 HAVING COALESCE(
@@ -59,5 +67,6 @@ END
 """)
     Page<Cliente> buscarAtivosComDividaPorNome(
             @Param("nome") String nome,
+            @Param("usuarioId") Long usuarioId,
             Pageable pageable);
 }

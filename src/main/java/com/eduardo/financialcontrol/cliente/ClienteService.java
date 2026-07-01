@@ -3,6 +3,7 @@ package com.eduardo.financialcontrol.cliente;
 import com.eduardo.financialcontrol.cliente.dto.ClienteRequest;
 import com.eduardo.financialcontrol.cliente.dto.ClienteResponse;
 import com.eduardo.financialcontrol.lancamento.LancamentoRepository;
+import com.eduardo.financialcontrol.security.UsuarioAutenticadoService;
 import com.eduardo.financialcontrol.shared.exception.RecursoNaoEncontradoException;
 import com.eduardo.financialcontrol.shared.exception.RegraDeNegocioException;
 import lombok.RequiredArgsConstructor;
@@ -19,12 +20,15 @@ public class ClienteService {
 
     private final ClienteRepository clienteRepository;
     private final LancamentoRepository lancamentoRepository;
+    private final UsuarioAutenticadoService usuarioAutenticadoService;
 
     @Transactional
     public ClienteResponse criar(ClienteRequest request) {
-        validarDocumentoUnico(request.documento(), null);
+        Long usuarioId = usuarioAutenticadoService.getUsuarioId();
+        validarDocumentoUnico(request.documento(), null, usuarioId);
         Cliente cliente = new Cliente();
         mapear(request, cliente);
+        cliente.setUsuario(usuarioAutenticadoService.getUsuario());
         return ClienteResponse.de(clienteRepository.save(cliente));
     }
 
@@ -33,6 +37,8 @@ public class ClienteService {
             String nome,
             Boolean comDivida,
             Pageable pageable) {
+
+        Long usuarioId = usuarioAutenticadoService.getUsuarioId();
 
         boolean filtrarNome =
                 nome != null && !nome.isBlank();
@@ -43,20 +49,20 @@ public class ClienteService {
 
             if (filtrarNome) {
                 page = clienteRepository
-                        .buscarAtivosComDividaPorNome(nome, pageable);
+                        .buscarAtivosComDividaPorNome(nome, usuarioId, pageable);
             } else {
                 page = clienteRepository
-                        .buscarAtivosComDivida(pageable);
+                        .buscarAtivosComDivida(usuarioId, pageable);
             }
 
         } else {
 
             if (filtrarNome) {
                 page = clienteRepository
-                        .buscarAtivosPorNome(nome, pageable);
+                        .buscarAtivosPorNome(nome, usuarioId, pageable);
             } else {
                 page = clienteRepository
-                        .findByAtivoTrue(pageable);
+                        .findByAtivoTrueAndUsuarioId(usuarioId, pageable);
             }
         }
 
@@ -71,7 +77,7 @@ public class ClienteService {
     @Transactional
     public ClienteResponse atualizar(Long id, ClienteRequest request) {
         Cliente cliente = encontrarOuLancar(id);
-        validarDocumentoUnico(request.documento(), id);
+        validarDocumentoUnico(request.documento(), id, usuarioAutenticadoService.getUsuarioId());
         mapear(request, cliente);
         return ClienteResponse.de(clienteRepository.save(cliente));
     }
@@ -90,14 +96,15 @@ public class ClienteService {
     }
 
     public Cliente encontrarOuLancar(Long id) {
-        return clienteRepository.findById(id)
+        Long usuarioId = usuarioAutenticadoService.getUsuarioId();
+        return clienteRepository.findByIdAndUsuarioId(id, usuarioId)
                 .filter(c -> Boolean.TRUE.equals(c.getAtivo()))
                 .orElseThrow(() -> new RecursoNaoEncontradoException("Cliente não encontrado: " + id));
     }
 
-    private void validarDocumentoUnico(String documento, Long idAtual) {
+    private void validarDocumentoUnico(String documento, Long idAtual, Long usuarioId) {
         if (documento == null || documento.isBlank()) return;
-        clienteRepository.findByDocumento(documento)
+        clienteRepository.findByDocumentoAndUsuarioId(documento, usuarioId)
                 .filter(c -> !c.getId().equals(idAtual))
                 .ifPresent(c -> {
                     throw new RegraDeNegocioException("Documento já cadastrado para outro cliente.");
