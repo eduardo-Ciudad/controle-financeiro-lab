@@ -3,6 +3,7 @@ package com.eduardo.financialcontrol.produto;
 import com.eduardo.financialcontrol.estoque.EstoqueService;
 import com.eduardo.financialcontrol.produto.dto.ProdutoRequest;
 import com.eduardo.financialcontrol.produto.dto.ProdutoResponse;
+import com.eduardo.financialcontrol.security.UsuarioAutenticadoService;
 import com.eduardo.financialcontrol.shared.exception.RecursoNaoEncontradoException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -19,24 +20,28 @@ public class ProdutoService {
 
     private final ProdutoRepository produtoRepository;
     private final EstoqueService estoqueService;
+    private final UsuarioAutenticadoService usuarioAutenticadoService;
 
     @Transactional
     public ProdutoResponse criar(ProdutoRequest request) {
         Produto produto = new Produto();
         mapear(request, produto);
         aplicarMarkup(request, produto);
+        produto.setUsuario(usuarioAutenticadoService.getUsuario());
         return toResponse(produtoRepository.save(produto));
     }
 
     @Transactional(readOnly = true)
     public Page<ProdutoResponse> listar(String nome, Pageable pageable) {
 
+        Long usuarioId = usuarioAutenticadoService.getUsuarioId();
+
         Page<Produto> page;
 
         if (nome != null && !nome.isBlank()) {
-            page = produtoRepository.buscarAtivosPorNome(nome, pageable);
+            page = produtoRepository.buscarAtivosPorNome(nome, usuarioId, pageable);
         } else {
-            page = produtoRepository.findByAtivoTrue(pageable);
+            page = produtoRepository.findByAtivoTrueAndUsuarioId(usuarioId, pageable);
         }
 
         return page.map(this::toResponse);
@@ -63,7 +68,7 @@ public class ProdutoService {
     }
 
     public Produto encontrarOuLancar(Long id) {
-        return produtoRepository.findById(id)
+        return produtoRepository.findByIdAndUsuarioId(id, usuarioAutenticadoService.getUsuarioId())
                 .filter(p -> Boolean.TRUE.equals(p.getAtivo()))
                 .orElseThrow(() -> new RecursoNaoEncontradoException("Produto não encontrado: " + id));
     }
