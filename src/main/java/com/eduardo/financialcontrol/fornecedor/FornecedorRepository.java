@@ -10,17 +10,21 @@ import java.util.Optional;
 
 public interface FornecedorRepository extends JpaRepository<Fornecedor, Long> {
 
-    Optional<Fornecedor> findByDocumento(String documento);
+    Optional<Fornecedor> findByIdAndUsuarioId(Long id, Long usuarioId);
+
+    Optional<Fornecedor> findByDocumentoAndUsuarioId(String documento, Long usuarioId);
 
     @Query("""
         SELECT f
         FROM Fornecedor f
         WHERE f.ativo = true
+          AND f.usuario.id = :usuarioId
           AND LOWER(f.nome) LIKE LOWER(CONCAT('%', :nome, '%'))
         """)
     Page<Fornecedor> buscarAtivosPorNome(
             @Param("nome") String nome,
+            @Param("usuarioId") Long usuarioId,
             Pageable pageable);
 
-    Page<Fornecedor> findByAtivoTrue(Pageable pageable);
+    Page<Fornecedor> findByAtivoTrueAndUsuarioId(Long usuarioId, Pageable pageable);
 }
