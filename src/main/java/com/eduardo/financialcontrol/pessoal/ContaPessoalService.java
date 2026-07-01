@@ -4,6 +4,7 @@ import com.eduardo.financialcontrol.pessoal.dto.ContaPessoalRequest;
 import com.eduardo.financialcontrol.pessoal.dto.ContaPessoalResponse;
 import com.eduardo.financialcontrol.pessoal.dto.ParcelamentoRequest;
 import com.eduardo.financialcontrol.pessoal.dto.ResumoMensalPessoalResponse;
+import com.eduardo.financialcontrol.security.UsuarioAutenticadoService;
 import com.eduardo.financialcontrol.shared.exception.RecursoNaoEncontradoException;
 import com.eduardo.financialcontrol.shared.exception.RegraDeNegocioException;
 import lombok.RequiredArgsConstructor;
@@ -22,6 +23,7 @@ import java.util.List;
 public class ContaPessoalService {
 
     private final ContaPessoalRepository contaPessoalRepository;
+    private final UsuarioAutenticadoService usuarioAutenticadoService;
 
     @Transactional
     public ContaPessoalResponse criar(ContaPessoalRequest request) {
@@ -29,6 +31,7 @@ public class ContaPessoalService {
         conta.setDescricao(request.descricao());
         conta.setValor(request.valor());
         conta.setDataVencimento(request.dataVencimento());
+        conta.setUsuario(usuarioAutenticadoService.getUsuario());
         return toResponse(contaPessoalRepository.save(conta));
     }
 
@@ -47,13 +50,15 @@ public class ContaPessoalService {
             fim = ym.atEndOfMonth();
         }
 
+        Long usuarioId = usuarioAutenticadoService.getUsuarioId();
+
         List<ContaPessoal> contas;
         if (status != null) {
             contas = contaPessoalRepository
-                    .findByDataVencimentoBetweenAndStatusOrderByDataVencimentoAsc(inicio, fim, status);
+                    .findByDataVencimentoBetweenAndStatusAndUsuarioIdOrderByDataVencimentoAsc(inicio, fim, status, usuarioId);
         } else {
             contas = contaPessoalRepository
-                    .findByDataVencimentoBetweenOrderByDataVencimentoAsc(inicio, fim);
+                    .findByDataVencimentoBetweenAndUsuarioIdOrderByDataVencimentoAsc(inicio, fim, usuarioId);
         }
 
         return contas.stream().map(this::toResponse).toList();
@@ -66,7 +71,8 @@ public class ContaPessoalService {
         LocalDate fim = ym.atEndOfMonth();
 
         List<ContaPessoal> contas = contaPessoalRepository
-                .findByDataVencimentoBetweenOrderByDataVencimentoAsc(inicio, fim);
+                .findByDataVencimentoBetweenAndUsuarioIdOrderByDataVencimentoAsc(
+                        inicio, fim, usuarioAutenticadoService.getUsuarioId());
 
         BigDecimal totalMes = contas.stream()
                 .map(ContaPessoal::getValor)
@@ -119,6 +125,8 @@ public class ContaPessoalService {
             parcelas.add(conta);
         }
 
+        parcelas.forEach(conta -> conta.setUsuario(usuarioAutenticadoService.getUsuario()));
+
         return contaPessoalRepository.saveAll(parcelas)
                 .stream().map(this::toResponse).toList();
     }
@@ -130,7 +138,7 @@ public class ContaPessoalService {
     }
 
     private ContaPessoal encontrarOuLancar(Long id) {
-        return contaPessoalRepository.findById(id)
+        return contaPessoalRepository.findByIdAndUsuarioId(id, usuarioAutenticadoService.getUsuarioId())
                 .orElseThrow(() -> new RecursoNaoEncontradoException("Conta não encontrada."));
     }
 

@@ -4,18 +4,21 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 
 public interface ContaPessoalRepository extends JpaRepository<ContaPessoal, Long> {
 
-    List<ContaPessoal> findByStatusOrderByDataVencimentoAsc(StatusConta status);
+    Optional<ContaPessoal> findByIdAndUsuarioId(Long id, Long usuarioId);
 
-    List<ContaPessoal> findAllByOrderByDataVencimentoAsc();
+    List<ContaPessoal> findByStatusAndUsuarioIdOrderByDataVencimentoAsc(StatusConta status, Long usuarioId);
+
+    List<ContaPessoal> findAllByUsuarioIdOrderByDataVencimentoAsc(Long usuarioId);
 
     // No ContaPessoalRepository
 
-    List<ContaPessoal> findByDataVencimentoBetweenOrderByDataVencimentoAsc(
-            LocalDate inicio, LocalDate fim);
+    List<ContaPessoal> findByDataVencimentoBetweenAndUsuarioIdOrderByDataVencimentoAsc(
+            LocalDate inicio, LocalDate fim, Long usuarioId);
 
-    List<ContaPessoal> findByDataVencimentoBetweenAndStatusOrderByDataVencimentoAsc(
-            LocalDate inicio, LocalDate fim, StatusConta status);
+    List<ContaPessoal> findByDataVencimentoBetweenAndStatusAndUsuarioIdOrderByDataVencimentoAsc(
+            LocalDate inicio, LocalDate fim, StatusConta status, Long usuarioId);
 }
