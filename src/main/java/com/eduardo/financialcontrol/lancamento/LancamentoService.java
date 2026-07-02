@@ -121,7 +121,7 @@ public class LancamentoService {
         estorno = lancamentoRepository.save(estorno);
 
         if (original.getCategoria() == Categoria.COMPRA) {
-            List<MovimentacaoEstoque> itensOriginais = movimentacaoEstoqueRepository.buscarItensVenda(original.getId());
+            List<MovimentacaoEstoque> itensOriginais = movimentacaoEstoqueRepository.buscarItensVenda(original.getId(), usuarioId);
             for (MovimentacaoEstoque item : itensOriginais) {
                 estoqueService.registrarEntrada(item.getProduto(), item.getQuantidade(), item.getPrecoUnitario(),
                         OrigemMovimentacao.ESTORNO, estorno.getId(), dataCompetencia);
@@ -195,8 +195,9 @@ public class LancamentoService {
     }
 
     private LancamentoResponse montarResponse(Lancamento lancamento) {
+        Long usuarioId = usuarioAutenticadoService.getUsuarioId();
         List<ItemVendaResponse> itens = lancamento.getCategoria() == Categoria.COMPRA
-                ? movimentacaoEstoqueRepository.buscarItensVenda(lancamento.getId()).stream()
+                ? movimentacaoEstoqueRepository.buscarItensVenda(lancamento.getId(), usuarioId).stream()
                         .map(ItemVendaResponse::de)
                         .toList()
                 : null;
@@ -205,17 +206,18 @@ public class LancamentoService {
 
     @Transactional(readOnly = true)
     public List<LancamentoResponse> listarVendasPorMes(String mes) {
+        Long usuarioId = usuarioAutenticadoService.getUsuarioId();
         YearMonth ym = YearMonth.parse(mes);
         LocalDate inicio = ym.atDay(1);
         LocalDate fim = ym.atEndOfMonth();
 
         List<Lancamento> vendas = lancamentoRepository
                 .findByCategoriaAndDataCompetenciaBetweenAndUsuarioId(
-                        Categoria.COMPRA, inicio, fim, usuarioAutenticadoService.getUsuarioId());
+                        Categoria.COMPRA, inicio, fim, usuarioId);
 
         return vendas.stream().map(l -> {
             List<ItemVendaResponse> itens = movimentacaoEstoqueRepository
-                    .findByLancamentoClienteId(l.getId())
+                    .findByLancamentoClienteIdAndUsuarioId(l.getId(), usuarioId)
                     .stream()
                     .map(ItemVendaResponse::de)
                     .toList();

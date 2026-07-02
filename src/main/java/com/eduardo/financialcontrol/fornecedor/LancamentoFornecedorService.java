@@ -109,7 +109,7 @@ public class LancamentoFornecedorService {
         LocalDate dataCompetencia = request.dataCompetencia() != null ? request.dataCompetencia() : LocalDate.now();
 
         List<MovimentacaoEstoque> itensOriginais = original.getCategoria() == Categoria.COMPRA
-                ? movimentacaoEstoqueRepository.buscarItensCompra(original.getId())
+                ? movimentacaoEstoqueRepository.buscarItensCompra(original.getId(), usuarioId)
                 : List.of();
 
         for (MovimentacaoEstoque item : itensOriginais) {
@@ -188,8 +188,9 @@ public class LancamentoFornecedorService {
     }
 
     private LancamentoFornecedorResponse montarResponse(LancamentoFornecedor lancamento) {
+        Long usuarioId = usuarioAutenticadoService.getUsuarioId();
         List<ItemCompraFornecedorResponse> itens = lancamento.getCategoria() == Categoria.COMPRA
-                ? movimentacaoEstoqueRepository.buscarItensCompra(lancamento.getId()).stream()
+                ? movimentacaoEstoqueRepository.buscarItensCompra(lancamento.getId(), usuarioId).stream()
                         .map(ItemCompraFornecedorResponse::de)
                         .toList()
                 : null;

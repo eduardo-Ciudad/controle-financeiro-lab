@@ -86,7 +86,8 @@ public class ClienteService {
     public void inativar(Long id) {
         Cliente cliente = encontrarOuLancar(id);
 
-        BigDecimal saldo = lancamentoRepository.calcularSaldo(id);
+        Long usuarioId = usuarioAutenticadoService.getUsuarioId();
+        BigDecimal saldo = lancamentoRepository.calcularSaldo(id, usuarioId);
         if (saldo != null && saldo.compareTo(BigDecimal.ZERO) != 0) {
             throw new RegraDeNegocioException("Cliente possui saldo pendente de R$ " + saldo);
         }
