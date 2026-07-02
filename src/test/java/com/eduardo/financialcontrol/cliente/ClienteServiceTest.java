@@ -1,15 +1,19 @@
 package com.eduardo.financialcontrol.cliente;
 
+import com.eduardo.financialcontrol.auth.Usuario;
 import com.eduardo.financialcontrol.cliente.dto.ClienteRequest;
 import com.eduardo.financialcontrol.cliente.dto.ClienteResponse;
 import com.eduardo.financialcontrol.lancamento.LancamentoRepository;
+import com.eduardo.financialcontrol.security.UsuarioAutenticadoService;
 import com.eduardo.financialcontrol.shared.exception.RecursoNaoEncontradoException;
 import com.eduardo.financialcontrol.shared.exception.RegraDeNegocioException;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.math.BigDecimal;
 import java.util.Optional;
@@ -24,7 +28,18 @@ class ClienteServiceTest {
 
     @Mock ClienteRepository clienteRepository;
     @Mock LancamentoRepository lancamentoRepository;
+    @Mock UsuarioAutenticadoService usuarioAutenticadoService;
     @InjectMocks ClienteService clienteService;
+
+    private Usuario usuario;
+
+    @BeforeEach
+    void setUpUsuario() {
+        usuario = new Usuario("Teste", "teste@lab.com", "hash");
+        ReflectionTestUtils.setField(usuario, "id", 1L);
+        lenient().when(usuarioAutenticadoService.getUsuario()).thenReturn(usuario);
+        lenient().when(usuarioAutenticadoService.getUsuarioId()).thenReturn(1L);
+    }
 
     @Test
     void criar_clienteValido_retornaResponse() {
@@ -47,7 +62,7 @@ class ClienteServiceTest {
         ClienteRequest request = new ClienteRequest("João", "123.456.789-00", null, null, null);
         Cliente existente = clienteComId(99L, "Outro");
         existente.setDocumento("123.456.789-00");
-        when(clienteRepository.findByDocumento("123.456.789-00")).thenReturn(Optional.of(existente));
+        when(clienteRepository.findByDocumentoAndUsuarioId("123.456.789-00", 1L)).thenReturn(Optional.of(existente));
 
         // Act & Assert
         assertThatThrownBy(() -> clienteService.criar(request))
@@ -58,7 +73,7 @@ class ClienteServiceTest {
     @Test
     void buscarPorId_naoEncontrado_lancaExcecao() {
         // Arrange
-        when(clienteRepository.findById(99L)).thenReturn(Optional.empty());
+        when(clienteRepository.findByIdAndUsuarioId(99L, 1L)).thenReturn(Optional.empty());
 
         // Act & Assert
         assertThatThrownBy(() -> clienteService.buscarPorId(99L))
@@ -69,8 +84,8 @@ class ClienteServiceTest {
     void inativar_comSaldoZero_inativa() {
         // Arrange
         Cliente cliente = clienteComId(1L, "João");
-        when(clienteRepository.findById(1L)).thenReturn(Optional.of(cliente));
-        when(lancamentoRepository.calcularSaldo(1L)).thenReturn(BigDecimal.ZERO);
+        when(clienteRepository.findByIdAndUsuarioId(1L, 1L)).thenReturn(Optional.of(cliente));
+        when(lancamentoRepository.calcularSaldo(1L, 1L)).thenReturn(BigDecimal.ZERO);
 
         // Act
         clienteService.inativar(1L);
@@ -84,8 +99,8 @@ class ClienteServiceTest {
     void inativar_comSaldoPositivo_lancaExcecao() {
         // Arrange
         Cliente cliente = clienteComId(1L, "João");
-        when(clienteRepository.findById(1L)).thenReturn(Optional.of(cliente));
-        when(lancamentoRepository.calcularSaldo(1L)).thenReturn(new BigDecimal("500.00"));
+        when(clienteRepository.findByIdAndUsuarioId(1L, 1L)).thenReturn(Optional.of(cliente));
+        when(lancamentoRepository.calcularSaldo(1L, 1L)).thenReturn(new BigDecimal("500.00"));
 
         // Act & Assert
         assertThatThrownBy(() -> clienteService.inativar(1L))
@@ -93,7 +108,7 @@ class ClienteServiceTest {
     }
 
     private Cliente clienteComId(Long id, String nome) {
-        Cliente c = new Cliente();
+        Cliente c = new Cliente(usuario);
         c.setId(id);
         c.setNome(nome);
         c.setAtivo(true);
