@@ -29,13 +29,13 @@ class AuthServiceTest {
     @Test
     void login_credenciaisValidas_retornaToken() {
         // Arrange
-        Usuario usuario = new Usuario("Admin", "admin@test.com", "hash", Role.ADMIN);
+        Usuario usuario = new Usuario("Admin", "admin@test.com", "hash");
         usuario.setAtivo(true);
         LoginRequest request = new LoginRequest("admin@test.com", "senha123");
 
         when(usuarioRepository.findByEmail("admin@test.com")).thenReturn(Optional.of(usuario));
         when(passwordEncoder.matches("senha123", "hash")).thenReturn(true);
-        when(jwtService.gerarToken("admin@test.com", "ADMIN")).thenReturn("token.jwt");
+        when(jwtService.gerarToken("admin@test.com")).thenReturn("token.jwt");
         when(jwtService.calcularExpiracao()).thenReturn(OffsetDateTime.now().plusHours(24));
 
         // Act
@@ -49,7 +49,7 @@ class AuthServiceTest {
     @Test
     void login_senhaErrada_lancaExcecao() {
         // Arrange
-        Usuario usuario = new Usuario("Admin", "admin@test.com", "hash", Role.ADMIN);
+        Usuario usuario = new Usuario("Admin", "admin@test.com", "hash");
         usuario.setAtivo(true);
         LoginRequest request = new LoginRequest("admin@test.com", "senhaErrada");
 
@@ -64,7 +64,7 @@ class AuthServiceTest {
     @Test
     void login_usuarioInativo_lancaExcecao() {
         // Arrange
-        Usuario usuario = new Usuario("Admin", "admin@test.com", "hash", Role.ADMIN);
+        Usuario usuario = new Usuario("Admin", "admin@test.com", "hash");
         usuario.setAtivo(false);
         LoginRequest request = new LoginRequest("admin@test.com", "senha123");
 
