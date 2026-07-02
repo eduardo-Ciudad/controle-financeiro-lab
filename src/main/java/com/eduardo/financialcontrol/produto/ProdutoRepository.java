@@ -27,5 +27,5 @@ public interface ProdutoRepository extends JpaRepository<Produto, Long> {
 
     Page<Produto> findByAtivoTrueAndUsuarioId(Long usuarioId, Pageable pageable);
 
-    List<Produto> findAllByAtivoTrue();
+    List<Produto> findAllByAtivoTrueAndUsuarioId(Long usuarioId);
 }
