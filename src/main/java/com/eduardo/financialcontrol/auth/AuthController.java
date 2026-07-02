@@ -1,6 +1,7 @@
 package com.eduardo.financialcontrol.auth;
 
 import com.eduardo.financialcontrol.auth.dto.LoginRequest;
+import com.eduardo.financialcontrol.auth.dto.RegisterRequest;
 import com.eduardo.financialcontrol.auth.dto.TokenResponse;
 import com.eduardo.financialcontrol.config.RateLimitConfig;
 import io.github.bucket4j.Bucket;
@@ -38,5 +39,18 @@ public class AuthController {
         } catch (BadCredentialsException e) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
+    }
+
+    @PostMapping("/register")
+    public ResponseEntity<TokenResponse> registrar(
+            @Valid @RequestBody RegisterRequest request,
+            HttpServletRequest httpRequest) {
+
+        Bucket bucket = rateLimitConfig.resolveBucket(httpRequest.getRemoteAddr());
+        if (!bucket.tryConsume(1)) {
+            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).build();
+        }
+
+        return ResponseEntity.status(HttpStatus.CREATED).body(authService.registrar(request));
     }
 }
