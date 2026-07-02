@@ -1,8 +1,10 @@
 package com.eduardo.financialcontrol.auth;
 
 import com.eduardo.financialcontrol.auth.dto.LoginRequest;
+import com.eduardo.financialcontrol.auth.dto.RegisterRequest;
 import com.eduardo.financialcontrol.auth.dto.TokenResponse;
 import com.eduardo.financialcontrol.security.JwtService;
+import com.eduardo.financialcontrol.shared.exception.RegraDeNegocioException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
@@ -27,6 +29,23 @@ public class AuthService {
                     log.warn("Tentativa de login falhou para e-mail: {}", request.email());
                     return new org.springframework.security.authentication.BadCredentialsException("Credenciais inválidas");
                 });
+
+        String token = jwtService.gerarToken(usuario.getEmail());
+        return new TokenResponse(token, jwtService.calcularExpiracao());
+    }
+
+    @Transactional
+    public TokenResponse registrar(RegisterRequest request) {
+        if (usuarioRepository.findByEmail(request.email()).isPresent()) {
+            throw new RegraDeNegocioException("E-mail já cadastrado.");
+        }
+
+        Usuario usuario = new Usuario(
+                request.nome(),
+                request.email(),
+                passwordEncoder.encode(request.senha())
+        );
+        usuarioRepository.save(usuario);
 
         String token = jwtService.gerarToken(usuario.getEmail());
         return new TokenResponse(token, jwtService.calcularExpiracao());
