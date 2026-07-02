@@ -1,10 +1,12 @@
 package com.eduardo.financialcontrol.estoque;
 
 
+import com.eduardo.financialcontrol.auth.Usuario;
 import com.eduardo.financialcontrol.estoque.dto.AjusteEstoqueRequest;
 import com.eduardo.financialcontrol.estoque.dto.EstoqueResponse;
 import com.eduardo.financialcontrol.produto.Produto;
 import com.eduardo.financialcontrol.produto.ProdutoRepository;
+import com.eduardo.financialcontrol.security.UsuarioAutenticadoService;
 import com.eduardo.financialcontrol.shared.exception.RecursoNaoEncontradoException;
 import com.eduardo.financialcontrol.shared.exception.RegraDeNegocioException;
 import org.junit.jupiter.api.BeforeEach;
@@ -14,6 +16,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -38,14 +41,23 @@ class EstoqueServiceTest {
     @Mock
     private ProdutoRepository produtoRepository;
 
+    @Mock
+    private UsuarioAutenticadoService usuarioAutenticadoService;
+
     @InjectMocks
     private EstoqueService estoqueService;
 
     private Produto produto;
+    private Usuario usuario;
 
     @BeforeEach
     void setUp() {
-        produto = new Produto();
+        usuario = new Usuario("Teste", "teste@lab.com", "hash");
+        ReflectionTestUtils.setField(usuario, "id", 1L);
+        lenient().when(usuarioAutenticadoService.getUsuario()).thenReturn(usuario);
+        lenient().when(usuarioAutenticadoService.getUsuarioId()).thenReturn(1L);
+
+        produto = new Produto(usuario);
         produto.setId(1L);
         produto.setNome("Tecido Algodão");
         produto.setPrecoVenda(new BigDecimal("25.00"));
@@ -57,13 +69,13 @@ class EstoqueServiceTest {
     @Test
     void cacularEstoque_deveRetornarQuantidadeDoRepository() {
 
-        when(movimentacaoEstoqueRepository.calcularEstoque(1L))
+        when(movimentacaoEstoqueRepository.calcularEstoque(1L, 1L))
                 .thenReturn(new BigDecimal("50.000"));
 
         BigDecimal resultado = estoqueService.calcularEstoque(1L);
 
         assertThat(resultado).isEqualByComparingTo("50.000");
-        verify(movimentacaoEstoqueRepository).calcularEstoque(1L);
+        verify(movimentacaoEstoqueRepository).calcularEstoque(1L, 1L);
     }
 
 
@@ -185,7 +197,7 @@ class EstoqueServiceTest {
     @Test
     void valorEmEstoque_deveCalcularQuantidadeVezesPrecoVenda() {
         // 10 * 25.00 = 250.00
-        when(movimentacaoEstoqueRepository.calcularEstoque(1L))
+        when(movimentacaoEstoqueRepository.calcularEstoque(1L, 1L))
                 .thenReturn(new BigDecimal("10"));
 
         BigDecimal valor = estoqueService.valorEmEstoque(produto);
@@ -198,7 +210,7 @@ class EstoqueServiceTest {
     void valorEmEstoque_deveArredondarCorretamente() {
 
         produto.setPrecoVenda(new BigDecimal("25.00"));
-        when(movimentacaoEstoqueRepository.calcularEstoque(1L))
+        when(movimentacaoEstoqueRepository.calcularEstoque(1L, 1L))
                 .thenReturn(new BigDecimal("3.333"));
 
         BigDecimal valor = estoqueService.valorEmEstoque(produto);
@@ -209,18 +221,18 @@ class EstoqueServiceTest {
 
     @Test
     void calcularValorTotalEstoque_deveCalcularCustoEVenda() {
-        Produto produto2 = new Produto();
+        Produto produto2 = new Produto(usuario);
         produto2.setId(2L);
         produto2.setNome("Tecido Seda");
         produto2.setPrecoVenda(new BigDecimal("50.00"));
         produto2.setPrecoCusto(new BigDecimal("30.00"));
         produto2.setAtivo(true);
 
-        when(produtoRepository.findAllByAtivoTrue()).thenReturn(List.of(produto, produto2));
+        when(produtoRepository.findAllByAtivoTrueAndUsuarioId(1L)).thenReturn(List.of(produto, produto2));
         // produto1: 10 unidades → custo 150.00, venda 250.00
-        when(movimentacaoEstoqueRepository.calcularEstoque(1L)).thenReturn(new BigDecimal("10"));
+        when(movimentacaoEstoqueRepository.calcularEstoque(1L, 1L)).thenReturn(new BigDecimal("10"));
         // produto2: 5 unidades → custo 150.00, venda 250.00
-        when(movimentacaoEstoqueRepository.calcularEstoque(2L)).thenReturn(new BigDecimal("5"));
+        when(movimentacaoEstoqueRepository.calcularEstoque(2L, 1L)).thenReturn(new BigDecimal("5"));
 
         var resultado = estoqueService.calcularValorTotalEstoque();
 
@@ -234,8 +246,8 @@ class EstoqueServiceTest {
     void calcularValorTotalEstoque_deveIgnorarProdutoComEstoqueZero() {
         // Produto com estoque zero não deve entrar na soma.
         // Esse cenário protege contra o caso de alguém remover o if > 0.
-        when(produtoRepository.findAllByAtivoTrue()).thenReturn(List.of(produto));
-        when(movimentacaoEstoqueRepository.calcularEstoque(1L)).thenReturn(BigDecimal.ZERO);
+        when(produtoRepository.findAllByAtivoTrueAndUsuarioId(1L)).thenReturn(List.of(produto));
+        when(movimentacaoEstoqueRepository.calcularEstoque(1L, 1L)).thenReturn(BigDecimal.ZERO);
 
         var resultado = estoqueService.calcularValorTotalEstoque();
 
@@ -248,8 +260,8 @@ class EstoqueServiceTest {
 
         produto.setPrecoCusto(null);
 
-        when(produtoRepository.findAllByAtivoTrue()).thenReturn(List.of(produto));
-        when(movimentacaoEstoqueRepository.calcularEstoque(1L)).thenReturn(new BigDecimal("10"));
+        when(produtoRepository.findAllByAtivoTrueAndUsuarioId(1L)).thenReturn(List.of(produto));
+        when(movimentacaoEstoqueRepository.calcularEstoque(1L, 1L)).thenReturn(new BigDecimal("10"));
         var resultado = estoqueService.calcularValorTotalEstoque();
 
         assertThat(resultado.get("totalCusto")).isEqualByComparingTo("0.00");
@@ -260,8 +272,8 @@ class EstoqueServiceTest {
 
     @Test
     void consultarEstoque_deveRetornarEstoqueResponse() {
-        when(produtoRepository.findById(1L)).thenReturn(Optional.of(produto));
-        when(movimentacaoEstoqueRepository.calcularEstoque(1L)).thenReturn(new BigDecimal("10"));
+        when(produtoRepository.findByIdAndUsuarioId(1L, 1L)).thenReturn(Optional.of(produto));
+        when(movimentacaoEstoqueRepository.calcularEstoque(1L, 1L)).thenReturn(new BigDecimal("10"));
 
         EstoqueResponse response = estoqueService.consultarEstoque(1L);
 
@@ -274,7 +286,7 @@ class EstoqueServiceTest {
 
     @Test
     void consultarEstoque_deveLancarExcecaoQuandoProdutoNaoExiste() {
-        when(produtoRepository.findById(99L)).thenReturn(Optional.empty());
+        when(produtoRepository.findByIdAndUsuarioId(99L, 1L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> estoqueService.consultarEstoque(99L))
                 .isInstanceOf(RecursoNaoEncontradoException.class)
@@ -287,9 +299,9 @@ class EstoqueServiceTest {
     void registrarAjuste_saida_comEstoqueSuficiente_deveRegistrar() {
         var request = new AjusteEstoqueRequest(TipoMovimentacao.SAIDA, new BigDecimal("5"), "Perda");
 
-        when(produtoRepository.findById(1L)).thenReturn(Optional.of(produto));
+        when(produtoRepository.findByIdAndUsuarioId(1L, 1L)).thenReturn(Optional.of(produto));
 
-        when(movimentacaoEstoqueRepository.calcularEstoque(1L))
+        when(movimentacaoEstoqueRepository.calcularEstoque(1L, 1L))
                 .thenReturn(new BigDecimal("10"))  // pra validação
                 .thenReturn(new BigDecimal("5"));   // pós-ajuste, pro retorno
 
@@ -317,8 +329,8 @@ class EstoqueServiceTest {
     void registrarAjuste_saida_comEstoqueInsuficiente_deveLancarExcecao() {
         var request = new AjusteEstoqueRequest(TipoMovimentacao.SAIDA, new BigDecimal("20"), "Perda");
 
-        when(produtoRepository.findById(1L)).thenReturn(Optional.of(produto));
-        when(movimentacaoEstoqueRepository.calcularEstoque(1L))
+        when(produtoRepository.findByIdAndUsuarioId(1L, 1L)).thenReturn(Optional.of(produto));
+        when(movimentacaoEstoqueRepository.calcularEstoque(1L, 1L))
                 .thenReturn(new BigDecimal("5")); // só tem 5, quer tirar 20
 
         assertThatThrownBy(() -> estoqueService.registrarAjuste(1L, request))
@@ -333,9 +345,9 @@ class EstoqueServiceTest {
     void registrarAjuste_entrada_deveRegistrarSemValidarEstoque() {
         var request = new AjusteEstoqueRequest(TipoMovimentacao.ENTRADA, new BigDecimal("50"), "Reposição");
 
-        when(produtoRepository.findById(1L)).thenReturn(Optional.of(produto));
+        when(produtoRepository.findByIdAndUsuarioId(1L, 1L)).thenReturn(Optional.of(produto));
         // Só precisa de uma chamada: consultarEstoque no retorno
-        when(movimentacaoEstoqueRepository.calcularEstoque(1L))
+        when(movimentacaoEstoqueRepository.calcularEstoque(1L, 1L))
                 .thenReturn(new BigDecimal("50"));
 
         when(movimentacaoEstoqueRepository.save(any(MovimentacaoEstoque.class)))
@@ -359,7 +371,7 @@ class EstoqueServiceTest {
         produto.setAtivo(false);
         var request = new AjusteEstoqueRequest(TipoMovimentacao.ENTRADA, new BigDecimal("10"), "Teste");
 
-        when(produtoRepository.findById(1L)).thenReturn(Optional.of(produto));
+        when(produtoRepository.findByIdAndUsuarioId(1L, 1L)).thenReturn(Optional.of(produto));
 
         assertThatThrownBy(() -> estoqueService.registrarAjuste(1L, request))
                 .isInstanceOf(RecursoNaoEncontradoException.class);
@@ -371,7 +383,7 @@ class EstoqueServiceTest {
     void registrarAjuste_produtoInexistente_deveLancarExcecao() {
         var request = new AjusteEstoqueRequest(TipoMovimentacao.ENTRADA, new BigDecimal("10"), "Teste");
 
-        when(produtoRepository.findById(99L)).thenReturn(Optional.empty());
+        when(produtoRepository.findByIdAndUsuarioId(99L, 1L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> estoqueService.registrarAjuste(99L, request))
                 .isInstanceOf(RecursoNaoEncontradoException.class);
