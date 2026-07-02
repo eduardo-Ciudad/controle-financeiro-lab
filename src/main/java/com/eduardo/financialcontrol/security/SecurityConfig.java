@@ -33,21 +33,17 @@ public class SecurityConfig {
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
                 .cors(cors -> cors.configurationSource(corsConfigurationSource))
-                // CSRF desabilitado: API stateless com JWT exclusivamente via header Authorization.
-                // Browsers não enviam headers customizados cross-origin, então CSRF não se aplica.
                 .csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.POST, "/auth/login").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/auth/register").permitAll()
                         .requestMatchers(
                                 "/swagger-ui/**",
                                 "/swagger-ui.html",
                                 "/v3/api-docs/**",
                                 "/actuator/health"
                         ).permitAll()
-                        // Endpoints administrativos restritos a ADMIN
-                        .requestMatchers("/admin/**").hasRole("ADMIN")
-                        // Qualquer outra requisição precisa estar autenticado
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
