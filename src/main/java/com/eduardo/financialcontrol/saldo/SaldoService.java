@@ -9,6 +9,7 @@ import com.eduardo.financialcontrol.lancamento.Lancamento;
 import com.eduardo.financialcontrol.lancamento.LancamentoRepository;
 import com.eduardo.financialcontrol.lancamento.Natureza;
 import com.eduardo.financialcontrol.saldo.dto.*;
+import com.eduardo.financialcontrol.security.UsuarioAutenticadoService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -21,7 +22,6 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
-
 @Service
 @RequiredArgsConstructor
 public class SaldoService {
@@ -30,19 +30,22 @@ public class SaldoService {
     private final LancamentoRepository lancamentoRepository;
     private final ClienteRepository clienteRepository;
     private final ClienteService clienteService;
+    private final UsuarioAutenticadoService usuarioAutenticadoService;
 
     @Transactional(readOnly = true)
     public SaldoClienteResponse saldoCliente(Long clienteId) {
+        Long usuarioId = usuarioAutenticadoService.getUsuarioId();
         Cliente cliente = clienteService.encontrarOuLancar(clienteId);
-        BigDecimal saldo = lancamentoRepository.calcularSaldo(clienteId);
+        BigDecimal saldo = lancamentoRepository.calcularSaldo(clienteId, usuarioId);
         return toResponse(cliente.getId(), cliente.getNome(), saldo);
     }
 
     @Transactional(readOnly = true)
     public Page<LinhaExtrato> extrato(Long clienteId, Pageable pageable) {
+        Long usuarioId = usuarioAutenticadoService.getUsuarioId();
         clienteService.encontrarOuLancar(clienteId);
         Page<Lancamento> page = lancamentoRepository
-                .findByClienteIdOrderByDataCompetenciaAscIdAsc(clienteId, pageable);
+                .findByClienteIdAndUsuarioIdOrderByDataCompetenciaAscIdAsc(clienteId, usuarioId, pageable);
 
         BigDecimal acumulado = BigDecimal.ZERO;
         List<LinhaExtrato> linhas = new ArrayList<>();
@@ -63,9 +66,10 @@ public class SaldoService {
 
     @Transactional(readOnly = true)
     public ResumoDiario resumoDiario(LocalDate data) {
-        // --- lançamentos de clientes no dia ---
+        Long usuarioId = usuarioAutenticadoService.getUsuarioId();
+
         List<Lancamento> lancamentos = lancamentoRepository
-                .findByDataCompetenciaOrderByIdAsc(data);
+                .findByDataCompetenciaAndUsuarioIdOrderByIdAsc(data, usuarioId);
 
         BigDecimal totalVendido = BigDecimal.ZERO;
         BigDecimal totalRecebido = BigDecimal.ZERO;
@@ -94,9 +98,8 @@ public class SaldoService {
             ));
         }
 
-        // --- lançamentos de fornecedores no dia ---
         List<LancamentoFornecedor> lancamentosFornecedor = lancamentoFornecedorRepository
-                .findByDataCompetenciaOrderByIdAsc(data);
+                .findByDataCompetenciaAndUsuarioIdOrderByIdAsc(data, usuarioId);
 
         List<ResumoDiario.LancamentoDiarioItem> itensFornecedores = lancamentosFornecedor.stream()
                 .map(lf -> new ResumoDiario.LancamentoDiarioItem(
@@ -123,15 +126,16 @@ public class SaldoService {
 
     @Transactional(readOnly = true)
     public ResumoDashboard dashboard() {
-        List<Cliente> clientes = clienteRepository.findAll().stream()
-                .filter(c -> Boolean.TRUE.equals(c.getAtivo()))
-                .toList();
+        Long usuarioId = usuarioAutenticadoService.getUsuarioId();
+
+        List<Cliente> clientes = clienteRepository.findByAtivoTrueAndUsuarioId(usuarioId, Pageable.unpaged())
+                .getContent();
 
         List<ResumoDashboard.DevedorItem> devedores = new ArrayList<>();
         BigDecimal totalAReceber = BigDecimal.ZERO;
 
         for (Cliente c : clientes) {
-            BigDecimal saldo = lancamentoRepository.calcularSaldo(c.getId());
+            BigDecimal saldo = lancamentoRepository.calcularSaldo(c.getId(), usuarioId);
             if (saldo.compareTo(BigDecimal.ZERO) > 0) {
                 totalAReceber = totalAReceber.add(saldo);
                 devedores.add(new ResumoDashboard.DevedorItem(c.getId(), c.getNome(), saldo));
@@ -145,7 +149,8 @@ public class SaldoService {
 
     @Transactional(readOnly = true)
     public List<ResumoMensalResponse> resumoMensal() {
-        return lancamentoRepository.resumoMensal().stream()
+        Long usuarioId = usuarioAutenticadoService.getUsuarioId();
+        return lancamentoRepository.resumoMensal(usuarioId).stream()
                 .map(row -> new ResumoMensalResponse(
                         (String) row[0],
                         row[1] instanceof BigDecimal ? (BigDecimal) row[1] : new BigDecimal(row[1].toString()),
