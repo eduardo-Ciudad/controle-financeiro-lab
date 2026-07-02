@@ -38,7 +38,6 @@ jobs:
           cache: maven
 
       - name: Run tests
-        working-directory:  financialcontrol
         env:
           SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/financialcontrol_test
           SPRING_DATASOURCE_USERNAME: postgres
@@ -47,5 +46,4 @@ jobs:
         run: mvn test -B
 
       - name: Build JAR
-        working-directory: financialcontrol
         run: mvn package -B -DskipTests
