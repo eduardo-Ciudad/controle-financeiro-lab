@@ -17,7 +17,8 @@ public interface LancamentoFornecedorRepository extends JpaRepository<Lancamento
 
     Optional<LancamentoFornecedor> findByEstornoDeAndUsuarioId(LancamentoFornecedor lancamento, Long usuarioId);
 
-    List<LancamentoFornecedor> findByDataCompetenciaOrderByIdAsc(LocalDate dataCompetencia);
+    List<LancamentoFornecedor> findByDataCompetenciaAndUsuarioIdOrderByIdAsc(
+            LocalDate dataCompetencia, Long usuarioId);
 
     @Query("""
             SELECT COALESCE(SUM(CASE WHEN l.natureza = com.eduardo.financialcontrol.lancamento.Natureza.DEBITO
