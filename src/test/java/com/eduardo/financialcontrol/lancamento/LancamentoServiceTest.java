@@ -1,5 +1,6 @@
 package com.eduardo.financialcontrol.lancamento;
 
+import com.eduardo.financialcontrol.auth.Usuario;
 import com.eduardo.financialcontrol.cliente.Cliente;
 import com.eduardo.financialcontrol.cliente.ClienteService;
 import com.eduardo.financialcontrol.estoque.EstoqueService;
@@ -13,13 +14,16 @@ import com.eduardo.financialcontrol.lancamento.dto.LancamentoResponse;
 import com.eduardo.financialcontrol.lancamento.dto.PagamentoRequest;
 import com.eduardo.financialcontrol.produto.Produto;
 import com.eduardo.financialcontrol.produto.ProdutoService;
+import com.eduardo.financialcontrol.security.UsuarioAutenticadoService;
 import com.eduardo.financialcontrol.shared.exception.RecursoNaoEncontradoException;
 import com.eduardo.financialcontrol.shared.exception.RegraDeNegocioException;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -40,7 +44,18 @@ class LancamentoServiceTest {
     @Mock ProdutoService produtoService;
     @Mock EstoqueService estoqueService;
     @Mock MovimentacaoEstoqueRepository movimentacaoEstoqueRepository;
+    @Mock UsuarioAutenticadoService usuarioAutenticadoService;
     @InjectMocks LancamentoService lancamentoService;
+
+    private Usuario usuario;
+
+    @BeforeEach
+    void setUpUsuario() {
+        usuario = new Usuario("Teste", "teste@lab.com", "hash");
+        ReflectionTestUtils.setField(usuario, "id", 1L);
+        lenient().when(usuarioAutenticadoService.getUsuario()).thenReturn(usuario);
+        lenient().when(usuarioAutenticadoService.getUsuarioId()).thenReturn(1L);
+    }
 
     @Test
     void registrarCompra_criaDebitoCompra() {
@@ -62,7 +77,7 @@ class LancamentoServiceTest {
             l.setCriadoEm(OffsetDateTime.now());
             return l;
         });
-        when(movimentacaoEstoqueRepository.buscarItensVenda(10L)).thenReturn(List.of());
+        when(movimentacaoEstoqueRepository.buscarItensVenda(10L, 1L)).thenReturn(List.of());
 
         // Act
         LancamentoResponse response = lancamentoService.registrarCompra(1L, request);
@@ -122,8 +137,8 @@ class LancamentoServiceTest {
     void estornar_lancamentoJaEstornado_lancaExcecao() {
         // Arrange
         Lancamento original = lancamentoComId(1L, Natureza.DEBITO, Categoria.COMPRA);
-        when(lancamentoRepository.findById(1L)).thenReturn(Optional.of(original));
-        when(lancamentoRepository.findByEstornoDe(original)).thenReturn(Optional.of(new Lancamento()));
+        when(lancamentoRepository.findByIdAndUsuarioId(1L, 1L)).thenReturn(Optional.of(original));
+        when(lancamentoRepository.findByEstornoDeAndUsuarioId(original, 1L)).thenReturn(Optional.of(new Lancamento(usuario)));
 
         // Act & Assert
         assertThatThrownBy(() -> lancamentoService.estornar(1L, new EstornoRequest(LocalDate.now(), null)))
@@ -135,7 +150,7 @@ class LancamentoServiceTest {
     void estornar_lancamentoDeEstorno_lancaExcecao() {
         // Arrange
         Lancamento estorno = lancamentoComId(1L, Natureza.CREDITO, Categoria.ESTORNO);
-        when(lancamentoRepository.findById(1L)).thenReturn(Optional.of(estorno));
+        when(lancamentoRepository.findByIdAndUsuarioId(1L, 1L)).thenReturn(Optional.of(estorno));
 
         // Act & Assert
         assertThatThrownBy(() -> lancamentoService.estornar(1L, new EstornoRequest(LocalDate.now(), null)))
@@ -150,9 +165,9 @@ class LancamentoServiceTest {
         Lancamento original = lancamentoComId(5L, Natureza.DEBITO, Categoria.COMPRA);
         original.setCliente(cliente);
         original.setValor(new BigDecimal("200.00"));
-        when(lancamentoRepository.findById(5L)).thenReturn(Optional.of(original));
-        when(lancamentoRepository.findByEstornoDe(original)).thenReturn(Optional.empty());
-        when(movimentacaoEstoqueRepository.buscarItensVenda(5L)).thenReturn(List.of());
+        when(lancamentoRepository.findByIdAndUsuarioId(5L, 1L)).thenReturn(Optional.of(original));
+        when(lancamentoRepository.findByEstornoDeAndUsuarioId(original, 1L)).thenReturn(Optional.empty());
+        when(movimentacaoEstoqueRepository.buscarItensVenda(5L, 1L)).thenReturn(List.of());
         when(lancamentoRepository.save(any())).thenAnswer(inv -> {
             Lancamento l = inv.getArgument(0);
             l.setId(20L);
@@ -177,15 +192,15 @@ class LancamentoServiceTest {
         Lancamento original = lancamentoComId(5L, Natureza.DEBITO, Categoria.COMPRA);
         original.setCliente(cliente);
         original.setValor(new BigDecimal("1000.00"));
-        when(lancamentoRepository.findById(5L)).thenReturn(Optional.of(original));
-        when(lancamentoRepository.findByEstornoDe(original)).thenReturn(Optional.empty());
+        when(lancamentoRepository.findByIdAndUsuarioId(5L, 1L)).thenReturn(Optional.of(original));
+        when(lancamentoRepository.findByEstornoDeAndUsuarioId(original, 1L)).thenReturn(Optional.empty());
 
         Produto produto = produtoComId(1L, "Rolo de tecido", new BigDecimal("100.00"));
-        MovimentacaoEstoque movimentacao = new MovimentacaoEstoque();
+        MovimentacaoEstoque movimentacao = new MovimentacaoEstoque(usuario);
         movimentacao.setProduto(produto);
         movimentacao.setQuantidade(new BigDecimal("10.000"));
         movimentacao.setPrecoUnitario(new BigDecimal("100.00"));
-        when(movimentacaoEstoqueRepository.buscarItensVenda(5L)).thenReturn(List.of(movimentacao));
+        when(movimentacaoEstoqueRepository.buscarItensVenda(5L, 1L)).thenReturn(List.of(movimentacao));
 
         LocalDate dataCompetencia = LocalDate.now();
         when(lancamentoRepository.save(any())).thenAnswer(inv -> {
@@ -205,13 +220,13 @@ class LancamentoServiceTest {
 
     @Test
     void buscarPorId_naoEncontrado_lancaExcecao() {
-        when(lancamentoRepository.findById(99L)).thenReturn(Optional.empty());
+        when(lancamentoRepository.findByIdAndUsuarioId(99L, 1L)).thenReturn(Optional.empty());
         assertThatThrownBy(() -> lancamentoService.buscarPorId(99L))
                 .isInstanceOf(RecursoNaoEncontradoException.class);
     }
 
     private Cliente clienteComId(Long id) {
-        Cliente c = new Cliente();
+        Cliente c = new Cliente(usuario);
         c.setId(id);
         c.setNome("Cliente " + id);
         c.setAtivo(true);
@@ -219,7 +234,7 @@ class LancamentoServiceTest {
     }
 
     private Lancamento lancamentoComId(Long id, Natureza natureza, Categoria categoria) {
-        Lancamento l = new Lancamento();
+        Lancamento l = new Lancamento(usuario);
         l.setId(id);
         l.setNatureza(natureza);
         l.setCategoria(categoria);
@@ -229,7 +244,7 @@ class LancamentoServiceTest {
     }
 
     private Produto produtoComId(Long id, String nome, BigDecimal precoVenda) {
-        Produto p = new Produto();
+        Produto p = new Produto(usuario);
         p.setId(id);
         p.setNome(nome);
         p.setPrecoVenda(precoVenda);
