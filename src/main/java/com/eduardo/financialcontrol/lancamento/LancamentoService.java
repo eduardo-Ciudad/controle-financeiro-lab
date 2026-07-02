@@ -58,14 +58,13 @@ public class LancamentoService {
 
         valorTotal = valorTotal.setScale(2, RoundingMode.HALF_UP);
 
-        Lancamento lancamento = new Lancamento();
+        Lancamento lancamento = new Lancamento(usuarioAutenticadoService.getUsuario());
         lancamento.setCliente(cliente);
         lancamento.setNatureza(Natureza.DEBITO);
         lancamento.setCategoria(Categoria.COMPRA);
         lancamento.setValor(valorTotal);
         lancamento.setDataCompetencia(request.dataCompetencia());
         lancamento.setDescricao(request.descricao());
-        lancamento.setUsuario(usuarioAutenticadoService.getUsuario());
         lancamento = lancamentoRepository.save(lancamento);
 
         for (int i = 0; i < produtos.size(); i++) {
@@ -81,7 +80,7 @@ public class LancamentoService {
     @Transactional
     public LancamentoResponse registrarPagamento(Long clienteId, PagamentoRequest request) {
         Cliente cliente = clienteService.encontrarOuLancar(clienteId);
-        Lancamento lancamento = new Lancamento();
+        Lancamento lancamento = new Lancamento(usuarioAutenticadoService.getUsuario());
         lancamento.setCliente(cliente);
         lancamento.setNatureza(Natureza.CREDITO);
         lancamento.setCategoria(Categoria.PAGAMENTO);
@@ -89,7 +88,6 @@ public class LancamentoService {
         lancamento.setDataCompetencia(request.dataCompetencia());
         lancamento.setDescricao(request.descricao());
         lancamento.setFormaPagamento(request.formaPagamento());
-        lancamento.setUsuario(usuarioAutenticadoService.getUsuario());
         return montarResponse(lancamentoRepository.save(lancamento));
     }
 
@@ -109,7 +107,7 @@ public class LancamentoService {
         Natureza naturezaOposta = original.getNatureza() == Natureza.DEBITO ? Natureza.CREDITO : Natureza.DEBITO;
         LocalDate dataCompetencia = request.dataCompetencia() != null ? request.dataCompetencia() : LocalDate.now();
 
-        Lancamento estorno = new Lancamento();
+        Lancamento estorno = new Lancamento(usuarioAutenticadoService.getUsuario());
         estorno.setCliente(original.getCliente());
         estorno.setNatureza(naturezaOposta);
         estorno.setCategoria(Categoria.ESTORNO);
@@ -117,7 +115,6 @@ public class LancamentoService {
         estorno.setDataCompetencia(dataCompetencia);
         estorno.setDescricao(request.descricao() != null ? request.descricao() : "Estorno de lançamento #" + original.getId());
         estorno.setEstornoDe(original);
-        estorno.setUsuario(usuarioAutenticadoService.getUsuario());
         estorno = lancamentoRepository.save(estorno);
 
         if (original.getCategoria() == Categoria.COMPRA) {
@@ -151,7 +148,7 @@ public class LancamentoService {
                 .setScale(2, RoundingMode.HALF_UP);
 
         // 1. Lançamento de débito (a venda em si)
-        Lancamento lancamento = new Lancamento();
+        Lancamento lancamento = new Lancamento(usuarioAutenticadoService.getUsuario());
         lancamento.setCliente(cliente);
         lancamento.setNatureza(Natureza.DEBITO);
         lancamento.setCategoria(Categoria.COMPRA);
@@ -159,7 +156,6 @@ public class LancamentoService {
         lancamento.setDataCompetencia(request.dataCompetencia());
         lancamento.setDescricao("Venda: " + request.quantidade() + "x " + produto.getNome());
         lancamento.setFormaPagamento(request.formaPagamento());
-        lancamento.setUsuario(usuarioAutenticadoService.getUsuario());
         lancamento = lancamentoRepository.save(lancamento);
 
         // 2. Saída de estoque
@@ -171,7 +167,7 @@ public class LancamentoService {
                 || request.formaPagamento() == FormaPagamento.FIADO;
 
         if (!fiado) {
-            Lancamento pagamento = new Lancamento();
+            Lancamento pagamento = new Lancamento(usuarioAutenticadoService.getUsuario());
             pagamento.setCliente(cliente);
             pagamento.setNatureza(Natureza.CREDITO);
             pagamento.setCategoria(Categoria.PAGAMENTO);
@@ -179,7 +175,6 @@ public class LancamentoService {
             pagamento.setDataCompetencia(request.dataCompetencia());
             pagamento.setDescricao("Pagamento ref. venda: " + request.quantidade() + "x " + produto.getNome());
             pagamento.setFormaPagamento(request.formaPagamento());
-            pagamento.setUsuario(usuarioAutenticadoService.getUsuario());
             lancamentoRepository.save(pagamento);
         }
 

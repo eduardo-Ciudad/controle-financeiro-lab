@@ -54,6 +54,10 @@ public class Cliente {
     @Column(name = "atualizado_em", nullable = false)
     private OffsetDateTime atualizadoEm = OffsetDateTime.now();
 
+    public Cliente(Usuario usuario) {
+        this.usuario = usuario;
+    }
+
     @PreUpdate
     private void preUpdate() {
         this.atualizadoEm = OffsetDateTime.now();

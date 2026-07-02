@@ -57,14 +57,13 @@ public class LancamentoFornecedorService {
         }
         valorTotal = valorTotal.setScale(2, RoundingMode.HALF_UP);
 
-        LancamentoFornecedor lancamento = new LancamentoFornecedor();
+        LancamentoFornecedor lancamento = new LancamentoFornecedor(usuarioAutenticadoService.getUsuario());
         lancamento.setFornecedor(fornecedor);
         lancamento.setNatureza(Natureza.DEBITO);
         lancamento.setCategoria(Categoria.COMPRA);
         lancamento.setValor(valorTotal);
         lancamento.setDataCompetencia(request.dataCompetencia());
         lancamento.setDescricao(request.descricao());
-        lancamento.setUsuario(usuarioAutenticadoService.getUsuario());
         lancamento = lancamentoFornecedorRepository.save(lancamento);
 
         for (int i = 0; i < produtos.size(); i++) {
@@ -80,7 +79,7 @@ public class LancamentoFornecedorService {
     @Transactional
     public LancamentoFornecedorResponse registrarPagamento(Long fornecedorId, PagamentoFornecedorRequest request) {
         Fornecedor fornecedor = fornecedorService.encontrarOuLancar(fornecedorId);
-        LancamentoFornecedor lancamento = new LancamentoFornecedor();
+        LancamentoFornecedor lancamento = new LancamentoFornecedor(usuarioAutenticadoService.getUsuario());
         lancamento.setFornecedor(fornecedor);
         lancamento.setNatureza(Natureza.CREDITO);
         lancamento.setCategoria(Categoria.PAGAMENTO);
@@ -88,7 +87,6 @@ public class LancamentoFornecedorService {
         lancamento.setDataCompetencia(request.dataCompetencia());
         lancamento.setDescricao(request.descricao());
         lancamento.setFormaPagamento(request.formaPagamento());
-        lancamento.setUsuario(usuarioAutenticadoService.getUsuario());
         return montarResponse(lancamentoFornecedorRepository.save(lancamento));
     }
 
@@ -120,7 +118,7 @@ public class LancamentoFornecedorService {
             }
         }
 
-        LancamentoFornecedor estorno = new LancamentoFornecedor();
+        LancamentoFornecedor estorno = new LancamentoFornecedor(usuarioAutenticadoService.getUsuario());
         estorno.setFornecedor(original.getFornecedor());
         estorno.setNatureza(naturezaOposta);
         estorno.setCategoria(Categoria.ESTORNO);
@@ -128,7 +126,6 @@ public class LancamentoFornecedorService {
         estorno.setDataCompetencia(dataCompetencia);
         estorno.setDescricao(request.descricao() != null ? request.descricao() : "Estorno de lançamento #" + original.getId());
         estorno.setEstornoDe(original);
-        estorno.setUsuario(usuarioAutenticadoService.getUsuario());
         estorno = lancamentoFornecedorRepository.save(estorno);
 
         for (MovimentacaoEstoque item : itensOriginais) {

@@ -54,6 +54,9 @@ public class Fornecedor {
     @Column(name = "atualizado_em", nullable = false)
     private OffsetDateTime atualizadoEm = OffsetDateTime.now();
 
+    public Fornecedor(Usuario usuario) {
+        this.usuario = usuario;
+    }
 
     @PreUpdate
     private void preUpdate() {

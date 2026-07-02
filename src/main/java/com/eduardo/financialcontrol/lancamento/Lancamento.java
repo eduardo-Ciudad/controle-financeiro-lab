@@ -3,6 +3,7 @@ package com.eduardo.financialcontrol.lancamento;
 import com.eduardo.financialcontrol.auth.Usuario;
 import com.eduardo.financialcontrol.cliente.Cliente;
 import jakarta.persistence.*;
+import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -20,6 +21,7 @@ public class Lancamento {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Setter(AccessLevel.NONE)
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "usuario_id", nullable = false)
     private Usuario usuario;
@@ -55,4 +57,8 @@ public class Lancamento {
 
     @Column(name = "criado_em", nullable = false, updatable = false)
     private OffsetDateTime criadoEm = OffsetDateTime.now();
+
+    public Lancamento(Usuario usuario) {
+        this.usuario = usuario;
+    }
 }

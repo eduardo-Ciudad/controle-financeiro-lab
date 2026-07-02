@@ -3,6 +3,7 @@ package com.eduardo.financialcontrol.estoque;
 import com.eduardo.financialcontrol.auth.Usuario;
 import com.eduardo.financialcontrol.produto.Produto;
 import jakarta.persistence.*;
+import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -20,6 +21,7 @@ public class MovimentacaoEstoque {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Setter(AccessLevel.NONE)
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "usuario_id", nullable = false)
     private Usuario usuario;
@@ -54,4 +56,8 @@ public class MovimentacaoEstoque {
 
     @Column(name = "criado_em", nullable = false, updatable = false)
     private OffsetDateTime criadoEm = OffsetDateTime.now();
+
+    public MovimentacaoEstoque(Usuario usuario) {
+        this.usuario = usuario;
+    }
 }

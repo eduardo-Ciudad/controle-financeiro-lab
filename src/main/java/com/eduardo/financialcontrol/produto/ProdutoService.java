@@ -24,10 +24,9 @@ public class ProdutoService {
 
     @Transactional
     public ProdutoResponse criar(ProdutoRequest request) {
-        Produto produto = new Produto();
+        Produto produto = new Produto(usuarioAutenticadoService.getUsuario());
         mapear(request, produto);
         aplicarMarkup(request, produto);
-        produto.setUsuario(usuarioAutenticadoService.getUsuario());
         return toResponse(produtoRepository.save(produto));
     }
 

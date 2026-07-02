@@ -23,9 +23,8 @@ public class FornecedorService {
     public FornecedorResponse criar(FornecedorRequest request) {
         Long usuarioId = usuarioAutenticadoService.getUsuarioId();
         validarDocumentoUnico(request.documento(), null, usuarioId);
-        Fornecedor fornecedor = new Fornecedor();
+        Fornecedor fornecedor = new Fornecedor(usuarioAutenticadoService.getUsuario());
         mapear(request, fornecedor);
-        fornecedor.setUsuario(usuarioAutenticadoService.getUsuario());
         return FornecedorResponse.de(fornecedorRepository.save(fornecedor));
     }
     @Transactional(readOnly = true)

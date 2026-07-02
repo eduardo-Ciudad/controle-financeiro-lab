@@ -120,9 +120,8 @@ public class EstoqueService {
     private MovimentacaoEstoque salvar(Produto produto, TipoMovimentacao tipo, BigDecimal quantidade, BigDecimal precoUnitario,
                                        OrigemMovimentacao origem, Long lancamentoClienteId, Long lancamentoFornecedorId,
                                        LocalDate dataCompetencia) {
-        MovimentacaoEstoque movimentacao = new MovimentacaoEstoque();
+        MovimentacaoEstoque movimentacao = new MovimentacaoEstoque(usuarioAutenticadoService.getUsuario());
         movimentacao.setProduto(produto);
-        movimentacao.setUsuario(usuarioAutenticadoService.getUsuario());
         movimentacao.setTipo(tipo);
         movimentacao.setQuantidade(quantidade);
         movimentacao.setPrecoUnitario(precoUnitario);

@@ -26,9 +26,8 @@ public class ClienteService {
     public ClienteResponse criar(ClienteRequest request) {
         Long usuarioId = usuarioAutenticadoService.getUsuarioId();
         validarDocumentoUnico(request.documento(), null, usuarioId);
-        Cliente cliente = new Cliente();
+        Cliente cliente = new Cliente(usuarioAutenticadoService.getUsuario());
         mapear(request, cliente);
-        cliente.setUsuario(usuarioAutenticadoService.getUsuario());
         return ClienteResponse.de(clienteRepository.save(cliente));
     }
 

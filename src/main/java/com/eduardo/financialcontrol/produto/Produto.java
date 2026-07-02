@@ -2,6 +2,7 @@ package com.eduardo.financialcontrol.produto;
 
 import com.eduardo.financialcontrol.auth.Usuario;
 import jakarta.persistence.*;
+import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -18,6 +19,7 @@ public class Produto {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Setter(AccessLevel.NONE)
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "usuario_id", nullable = false)
     private Usuario usuario;
@@ -46,5 +48,9 @@ public class Produto {
     @PreUpdate
     private void preUpdate() {
         this.atualizadoEm = OffsetDateTime.now();
+    }
+
+    public Produto(Usuario usuario) {
+        this.usuario = usuario;
     }
 }

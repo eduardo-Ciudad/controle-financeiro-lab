@@ -27,11 +27,10 @@ public class ContaPessoalService {
 
     @Transactional
     public ContaPessoalResponse criar(ContaPessoalRequest request) {
-        ContaPessoal conta = new ContaPessoal();
+        ContaPessoal conta = new ContaPessoal(usuarioAutenticadoService.getUsuario());
         conta.setDescricao(request.descricao());
         conta.setValor(request.valor());
         conta.setDataVencimento(request.dataVencimento());
-        conta.setUsuario(usuarioAutenticadoService.getUsuario());
         return toResponse(contaPessoalRepository.save(conta));
     }
 
@@ -118,14 +117,12 @@ public class ContaPessoalService {
         List<ContaPessoal> parcelas = new ArrayList<>();
 
         for (int i = 1; i <= request.quantidadeParcelas(); i++) {
-            ContaPessoal conta = new ContaPessoal();
+            ContaPessoal conta = new ContaPessoal(usuarioAutenticadoService.getUsuario());
             conta.setDescricao(request.descricao() + " (" + i + "/" + request.quantidadeParcelas() + ")");
             conta.setValor(i == request.quantidadeParcelas() ? valorUltimaParcela : valorParcela);
             conta.setDataVencimento(request.dataVencimentoPrimeira().plusMonths(i - 1));
             parcelas.add(conta);
         }
-
-        parcelas.forEach(conta -> conta.setUsuario(usuarioAutenticadoService.getUsuario()));
 
         return contaPessoalRepository.saveAll(parcelas)
                 .stream().map(this::toResponse).toList();
