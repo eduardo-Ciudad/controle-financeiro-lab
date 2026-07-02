@@ -1,9 +1,12 @@
 package com.eduardo.financialcontrol.produto;
 
+import com.eduardo.financialcontrol.auth.Usuario;
 import com.eduardo.financialcontrol.estoque.EstoqueService;
 import com.eduardo.financialcontrol.produto.dto.ProdutoRequest;
 import com.eduardo.financialcontrol.produto.dto.ProdutoResponse;
+import com.eduardo.financialcontrol.security.UsuarioAutenticadoService;
 import com.eduardo.financialcontrol.shared.exception.RecursoNaoEncontradoException;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -13,6 +16,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -32,8 +36,21 @@ class ProdutoServiceTest {
     @Mock
     EstoqueService estoqueService;
 
+    @Mock
+    UsuarioAutenticadoService usuarioAutenticadoService;
+
     @InjectMocks
     ProdutoService produtoService;
+
+    private Usuario usuario;
+
+    @BeforeEach
+    void setUpUsuario() {
+        usuario = new Usuario("Teste", "teste@lab.com", "hash");
+        ReflectionTestUtils.setField(usuario, "id", 1L);
+        lenient().when(usuarioAutenticadoService.getUsuario()).thenReturn(usuario);
+        lenient().when(usuarioAutenticadoService.getUsuarioId()).thenReturn(1L);
+    }
 
     @Test
     void criar_comPrecoVenda_naoAplicaMarkup() {
@@ -111,7 +128,7 @@ class ProdutoServiceTest {
     void buscarPorId_produtoAtivo_retornaResponse() {
         // Arrange
         Produto produto = produtoComId(1L, "Tecido", "100.00");
-        when(produtoRepository.findById(1L))
+        when(produtoRepository.findByIdAndUsuarioId(1L, 1L))
                 .thenReturn(Optional.of(produto));
         when(estoqueService.calcularEstoque(1L))
                 .thenReturn(new BigDecimal("25.000"));
@@ -126,7 +143,7 @@ class ProdutoServiceTest {
 
     @Test
     void buscarPorId_produtoInexistente_lancaExcecao() {
-        when(produtoRepository.findById(99L))
+        when(produtoRepository.findByIdAndUsuarioId(99L, 1L))
                 .thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> produtoService.buscarPorId(99L))
@@ -139,7 +156,7 @@ class ProdutoServiceTest {
         Produto produto = produtoComId(1L, "Tecido", "100.00");
         produto.setAtivo(false); // inativo!
 
-        when(produtoRepository.findById(1L))
+        when(produtoRepository.findByIdAndUsuarioId(1L, 1L))
                 .thenReturn(Optional.of(produto));
 
         // Assert
@@ -153,7 +170,7 @@ class ProdutoServiceTest {
     void atualizar_produtoExistente_atualizaCampos() {
         // Arrange
         Produto produto = produtoComId(1L, "Nome Antigo", "80.00");
-        when(produtoRepository.findById(1L))
+        when(produtoRepository.findByIdAndUsuarioId(1L, 1L))
                 .thenReturn(Optional.of(produto));
         when(produtoRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
         when(estoqueService.calcularEstoque(1L))
@@ -179,7 +196,7 @@ class ProdutoServiceTest {
     void inativar_produtoAtivo_setaAtivoFalse() {
         // Arrange
         Produto produto = produtoComId(1L, "Tecido", "100.00");
-        when(produtoRepository.findById(1L))
+        when(produtoRepository.findByIdAndUsuarioId(1L, 1L))
                 .thenReturn(Optional.of(produto));
 
         // Act
@@ -197,7 +214,7 @@ class ProdutoServiceTest {
         // Arrange
         Pageable pageable = PageRequest.of(0, 10);
         Produto produto = produtoComId(1L, "Tecido", "100.00");
-        when(produtoRepository.findByAtivoTrue(pageable))
+        when(produtoRepository.findByAtivoTrueAndUsuarioId(1L, pageable))
                 .thenReturn(new PageImpl<>(List.of(produto)));
         when(estoqueService.calcularEstoque(1L))
                 .thenReturn(BigDecimal.ZERO);
@@ -207,28 +224,28 @@ class ProdutoServiceTest {
 
         // Assert
         assertThat(page.getContent()).hasSize(1);
-        verify(produtoRepository, never()).buscarAtivosPorNome(any(), any());
+        verify(produtoRepository, never()).buscarAtivosPorNome(any(), any(), any());
     }
 
     @Test
     void listar_comNome_filtraPorNome() {
         // Arrange
         Pageable pageable = PageRequest.of(0, 10);
-        when(produtoRepository.buscarAtivosPorNome("seda", pageable))
+        when(produtoRepository.buscarAtivosPorNome("seda", 1L, pageable))
                 .thenReturn(new PageImpl<>(List.of()));
 
         // Act
         produtoService.listar("seda", pageable);
 
         // Assert
-        verify(produtoRepository).buscarAtivosPorNome("seda", pageable);
-        verify(produtoRepository, never()).findByAtivoTrue(any());
+        verify(produtoRepository).buscarAtivosPorNome("seda", 1L, pageable);
+        verify(produtoRepository, never()).findByAtivoTrueAndUsuarioId(any(), any());
     }
 
     // ========== HELPER ==========
 
     private Produto produtoComId(Long id, String nome, String precoVenda) {
-        Produto p = new Produto();
+        Produto p = new Produto(usuario);
         p.setId(id);
         p.setNome(nome);
         p.setPrecoVenda(new BigDecimal(precoVenda));
