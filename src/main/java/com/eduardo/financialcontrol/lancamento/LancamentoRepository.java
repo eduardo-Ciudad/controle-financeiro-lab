@@ -14,12 +14,19 @@ import java.util.Optional;
 public interface LancamentoRepository extends JpaRepository<Lancamento, Long> {
 
     @Query("""
-            SELECT COALESCE(SUM(CASE WHEN l.natureza = com.eduardo.financialcontrol.lancamento.Natureza.DEBITO
-                                     THEN l.valor ELSE -l.valor END), 0)
-            FROM Lancamento l
-            WHERE l.cliente.id = :clienteId
-            """)
-    BigDecimal calcularSaldo(@Param("clienteId") Long clienteId);
+        SELECT COALESCE(SUM(CASE WHEN l.natureza = com.eduardo.financialcontrol.lancamento.Natureza.DEBITO
+                                 THEN l.valor ELSE -l.valor END), 0)
+        FROM Lancamento l
+        WHERE l.cliente.id = :clienteId
+        AND l.usuario.id = :usuarioId
+        """)
+    BigDecimal calcularSaldo(@Param("clienteId") Long clienteId, @Param("usuarioId") Long usuarioId);
+
+
+    Page<Lancamento> findByClienteIdAndUsuarioIdOrderByDataCompetenciaAscIdAsc(
+            Long clienteId, Long usuarioId, Pageable pageable);
+
+    List<Lancamento> findByDataCompetenciaAndUsuarioIdOrderByIdAsc(LocalDate dataCompetencia, Long usuarioId);
 
     Optional<Lancamento> findByIdAndUsuarioId(Long id, Long usuarioId);
 
@@ -30,14 +37,15 @@ public interface LancamentoRepository extends JpaRepository<Lancamento, Long> {
     List<Lancamento> findByDataCompetenciaOrderByIdAsc(LocalDate dataCompetencia);
 
     @Query(value = """
-            SELECT to_char(data_competencia, 'YYYY-MM') AS mes,
-                   COALESCE(SUM(CASE WHEN natureza = 'CREDITO' THEN valor ELSE 0 END), 0) AS entradas,
-                   COALESCE(SUM(CASE WHEN natureza = 'DEBITO' THEN valor ELSE 0 END), 0) AS saidas
-            FROM lancamentos
-            GROUP BY to_char(data_competencia, 'YYYY-MM')
-            ORDER BY mes
-            """, nativeQuery = true)
-    List<Object[]> resumoMensal();
+        SELECT to_char(data_competencia, 'YYYY-MM') AS mes,
+               COALESCE(SUM(CASE WHEN natureza = 'CREDITO' THEN valor ELSE 0 END), 0) AS entradas,
+               COALESCE(SUM(CASE WHEN natureza = 'DEBITO' THEN valor ELSE 0 END), 0) AS saidas
+        FROM lancamentos
+        WHERE usuario_id = :usuarioId
+        GROUP BY to_char(data_competencia, 'YYYY-MM')
+        ORDER BY mes
+        """, nativeQuery = true)
+    List<Object[]> resumoMensal(@Param("usuarioId") Long usuarioId);
 
     List<Lancamento> findByCategoriaAndDataCompetenciaBetweenAndUsuarioId(
             Categoria categoria, LocalDate inicio, LocalDate fim, Long usuarioId);
