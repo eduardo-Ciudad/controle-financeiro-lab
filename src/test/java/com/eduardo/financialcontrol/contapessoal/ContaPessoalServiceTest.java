@@ -1,5 +1,6 @@
 package com.eduardo.financialcontrol.contapessoal;
 
+import com.eduardo.financialcontrol.auth.Usuario;
 import com.eduardo.financialcontrol.pessoal.ContaPessoal;
 import com.eduardo.financialcontrol.pessoal.ContaPessoalRepository;
 import com.eduardo.financialcontrol.pessoal.ContaPessoalService;
@@ -8,13 +9,16 @@ import com.eduardo.financialcontrol.pessoal.dto.ContaPessoalRequest;
 import com.eduardo.financialcontrol.pessoal.dto.ContaPessoalResponse;
 import com.eduardo.financialcontrol.pessoal.dto.ParcelamentoRequest;
 import com.eduardo.financialcontrol.pessoal.dto.ResumoMensalPessoalResponse;
+import com.eduardo.financialcontrol.security.UsuarioAutenticadoService;
 import com.eduardo.financialcontrol.shared.exception.RecursoNaoEncontradoException;
 import com.eduardo.financialcontrol.shared.exception.RegraDeNegocioException;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -33,8 +37,21 @@ class ContaPessoalServiceTest {
     @Mock
     ContaPessoalRepository contaPessoalRepository;
 
+    @Mock
+    UsuarioAutenticadoService usuarioAutenticadoService;
+
     @InjectMocks
     ContaPessoalService contaPessoalService;
+
+    private Usuario usuario;
+
+    @BeforeEach
+    void setUpUsuario() {
+        usuario = new Usuario("Teste", "teste@lab.com", "hash");
+        ReflectionTestUtils.setField(usuario, "id", 1L);
+        lenient().when(usuarioAutenticadoService.getUsuario()).thenReturn(usuario);
+        lenient().when(usuarioAutenticadoService.getUsuarioId()).thenReturn(1L);
+    }
 
     @Test
     void criar_contaValida_retornaResponse() {
@@ -65,7 +82,7 @@ class ContaPessoalServiceTest {
         // Arrange
         ContaPessoal conta = contaComId(1L, "Internet", "120.00",
                 StatusConta.PENDENTE);
-        when(contaPessoalRepository.findById(1L))
+        when(contaPessoalRepository.findByIdAndUsuarioId(1L, 1L))
                 .thenReturn(Optional.of(conta));
 
         // Act
@@ -82,7 +99,7 @@ class ContaPessoalServiceTest {
         // Arrange
         ContaPessoal conta = contaComId(1L, "Internet", "120.00",
                 StatusConta.PAGA);
-        when(contaPessoalRepository.findById(1L))
+        when(contaPessoalRepository.findByIdAndUsuarioId(1L, 1L))
                 .thenReturn(Optional.of(conta));
 
         // Act & Assert
@@ -93,7 +110,7 @@ class ContaPessoalServiceTest {
 
     @Test
     void pagar_contaInexistente_lancaExcecao() {
-        when(contaPessoalRepository.findById(99L))
+        when(contaPessoalRepository.findByIdAndUsuarioId(99L, 1L))
                 .thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> contaPessoalService.pagar(99L))
@@ -239,8 +256,8 @@ class ContaPessoalServiceTest {
         pendente.setDataVencimento(mesAtual.atDay(10));
 
         when(contaPessoalRepository
-                .findByDataVencimentoBetweenOrderByDataVencimentoAsc(
-                        mesAtual.atDay(1), mesAtual.atEndOfMonth()))
+                .findByDataVencimentoBetweenAndUsuarioIdOrderByDataVencimentoAsc(
+                        mesAtual.atDay(1), mesAtual.atEndOfMonth(), 1L))
                 .thenReturn(List.of(paga, pendente));
 
         // Act
@@ -261,7 +278,7 @@ class ContaPessoalServiceTest {
         // Arrange
         ContaPessoal conta = contaComId(1L, "Internet", "120.00",
                 StatusConta.PENDENTE);
-        when(contaPessoalRepository.findById(1L))
+        when(contaPessoalRepository.findByIdAndUsuarioId(1L, 1L))
                 .thenReturn(Optional.of(conta));
 
         // Act
@@ -273,7 +290,7 @@ class ContaPessoalServiceTest {
 
     @Test
     void deletar_contaInexistente_lancaExcecao() {
-        when(contaPessoalRepository.findById(99L))
+        when(contaPessoalRepository.findByIdAndUsuarioId(99L, 1L))
                 .thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> contaPessoalService.deletar(99L))
@@ -287,10 +304,10 @@ class ContaPessoalServiceTest {
     void listar_comMesEStatus_filtraCorretamente() {
         // Arrange
         when(contaPessoalRepository
-                .findByDataVencimentoBetweenAndStatusOrderByDataVencimentoAsc(
+                .findByDataVencimentoBetweenAndStatusAndUsuarioIdOrderByDataVencimentoAsc(
                         LocalDate.of(2026, 6, 1),
                         LocalDate.of(2026, 6, 30),
-                        StatusConta.PENDENTE))
+                        StatusConta.PENDENTE, 1L))
                 .thenReturn(List.of());
 
         // Act
@@ -300,7 +317,7 @@ class ContaPessoalServiceTest {
         // Assert
         assertThat(result).isEmpty();
         verify(contaPessoalRepository, never())
-                .findByDataVencimentoBetweenOrderByDataVencimentoAsc(any(), any());
+                .findByDataVencimentoBetweenAndUsuarioIdOrderByDataVencimentoAsc(any(), any(), any());
     }
 
     @Test
@@ -308,8 +325,8 @@ class ContaPessoalServiceTest {
         // Arrange
         YearMonth atual = YearMonth.now();
         when(contaPessoalRepository
-                .findByDataVencimentoBetweenOrderByDataVencimentoAsc(
-                        atual.atDay(1), atual.atEndOfMonth()))
+                .findByDataVencimentoBetweenAndUsuarioIdOrderByDataVencimentoAsc(
+                        atual.atDay(1), atual.atEndOfMonth(), 1L))
                 .thenReturn(List.of());
 
         // Act
@@ -317,14 +334,14 @@ class ContaPessoalServiceTest {
 
         // Assert — confirma que usou o mês atual como fallback
         verify(contaPessoalRepository)
-                .findByDataVencimentoBetweenOrderByDataVencimentoAsc(
-                        atual.atDay(1), atual.atEndOfMonth());
+                .findByDataVencimentoBetweenAndUsuarioIdOrderByDataVencimentoAsc(
+                        atual.atDay(1), atual.atEndOfMonth(), 1L);
     }
 
 
     private ContaPessoal contaComId(Long id, String descricao,
                                     String valor, StatusConta status) {
-        ContaPessoal c = new ContaPessoal();
+        ContaPessoal c = new ContaPessoal(usuario);
         c.setId(id);
         c.setDescricao(descricao);
         c.setValor(new BigDecimal(valor));
