@@ -11,7 +11,7 @@ public record VendaRequest(
         @NotNull Long clienteId,
         @NotNull Long produtoId,
         @NotNull @Positive BigDecimal quantidade,
-        BigDecimal precoUnitario,
+        @Positive BigDecimal precoUnitario,
         FormaPagamento formaPagamento,
         @NotNull LocalDate dataCompetencia
 ) {}
