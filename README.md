@@ -1,112 +1,94 @@
-# Financial Control — Backend
+# Financial Control Lab — Backend Multi-Tenant
 
-Sistema de gestão financeira desenvolvido sob demanda para uma fornecedora de tecidos. Controla lançamentos de clientes e fornecedores, estoque de produtos, extratos mensais e dashboard de vendas — tudo com autenticação JWT e arquitetura append-only para integridade dos dados.
+Sistema de gestão financeira multi-tenant evolução do projeto freelance original. Cada usuário se cadastra e tem acesso isolado aos seus próprios dados. Controla lançamentos de clientes e fornecedores, estoque de produtos, extratos mensais e dashboard de vendas com autenticação JWT e arquitetura append-only para integridade dos dados.
 
 ## Tech Stack
 
 - **Java 17** + **Spring Boot 3**
-- **Spring Security** + JWT (access & refresh token)
-- **PostgreSQL** (Neon / Supabase / Render)
-- **Flyway** — migrações versionadas
-- **Bucket4j** — rate limiting
-- **Swagger / OpenAPI** — documentação interativa
+- **Spring Security** + JWT
+- **PostgreSQL 16**
+- **Flyway** — 14 migrações versionadas
 - **Docker** — multi-stage build (`eclipse-temurin:17`)
+- **Nginx** — reverse proxy
+- **Let's Encrypt** — certificado SSL/TLS
+- **Swagger / OpenAPI** — documentação interativa
 
 ## Arquitetura
 
 ```
 com.eduardo.financialcontrol
-├── auth/            # Registro, login, JWT, seed do admin (CommandLineRunner)
+├── auth/            # Registro, login, JWT
 ├── cliente/         # CRUD de clientes + lançamentos (conta-corrente)
 ├── fornecedor/      # CRUD de fornecedores + lançamentos de compra
 ├── lancamento/      # Lançamentos gerais (categoria, natureza, forma de pagamento)
 ├── produto/         # Catálogo com preço de custo / venda (margem 30%)
 ├── estoque/         # Movimentações de entrada/saída, decremento integrado em vendas
 ├── saldo/           # Dashboard, extrato mensal, resumo e cálculo de saldo
-├── config/          # CORS, OpenAPI, Rate Limit
+├── config/          # CORS, OpenAPI
 ├── security/        # JwtFilter, JwtService, SecurityConfig
 └── shared/          # GlobalExceptionHandler, exceções customizadas, ApiError DTO
 ```
 
 ### Decisões técnicas
 
+- **Multi-tenant por usuário** — cada usuário tem acesso isolado aos seus dados. Todas as queries filtram por `usuario_id`, garantindo que nenhum usuário acesse dados de outro.
 - **Append-only ledger** — lançamentos nunca são editados ou deletados; correções são feitas via estorno (novo lançamento inverso), garantindo rastreabilidade completa.
 - **Saldo computado** — o saldo é calculado em tempo real via `SUM` sobre os lançamentos, nunca armazenado diretamente. Isso elimina inconsistências entre saldo e histórico.
 - **Package-by-feature** — cada domínio (cliente, fornecedor, produto, etc.) é um pacote isolado com sua própria camada de controller, service, repository e DTOs.
 
 ## Funcionalidades
 
-- **Autenticação e autorização** — registro, login, JWT com refresh token, seed de admin no primeiro boot via `BootstrapUsuario` (CommandLineRunner).
-- **Clientes** — cadastro completo com lançamentos no modelo conta-corrente (Modelo B); extrato agrupado por mês; coluna de saldo com indicador visual (vermelho/azul/verde).
+- **Autenticação** — registro e login com JWT. Qualquer pessoa se cadastra e tem seu próprio espaço isolado.
+- **Clientes** — cadastro completo com lançamentos no modelo conta-corrente; extrato agrupado por mês; coluna de saldo com indicador visual.
 - **Fornecedores** — cadastro + lançamentos de compra com preço unitário customizado por operação.
 - **Produtos** — catálogo com `precoCusto` e `precoVenda`, fórmula de margem de 30%.
 - **Estoque** — movimentações de entrada e saída; decremento automático integrado ao registrar vendas; enums `TipoMovimentacao` e `OrigemMovimentacao` para rastreabilidade.
 - **Dashboard** — painel de vendas mensais com navegação por setas (mês anterior / próximo); resumo financeiro; extrato detalhado.
-- **Tratamento de erros** — `GlobalExceptionHandler` com `@RestControllerAdvice`, exceções customizadas (`RecursoNaoEncontradoException`, `RegraDeNegocioException`) e resposta padronizada via `ApiError`.
-- **Rate limiting** — proteção contra abuso via Bucket4j.
+- **Tratamento de erros** — `GlobalExceptionHandler` com `@RestControllerAdvice`, exceções customizadas e resposta padronizada via `ApiError`.
 - **Documentação** — Swagger/OpenAPI configurado via `OpenApiConfig`.
-
-## Pré-requisitos
-
-- Java 17+
-- Maven
-- PostgreSQL (local ou cloud)
-- Docker (opcional, para build containerizado)
 
 ## Configuração
 
-Todas as configurações são feitas via variáveis de ambiente:
+Todas as configurações são feitas via variáveis de ambiente no `docker-compose.yml`:
 
 | Variável | Descrição |
 |---|---|
-| `DATABASE_URL` | URL de conexão do PostgreSQL |
-| `DATABASE_USERNAME` | Usuário do banco |
-| `DATABASE_PASSWORD` | Senha do banco |
+| `SPRING_DATASOURCE_URL` | URL de conexão do PostgreSQL |
+| `SPRING_DATASOURCE_USERNAME` | Usuário do banco |
+| `SPRING_DATASOURCE_PASSWORD` | Senha do banco |
 | `JWT_SECRET` | Chave secreta para assinatura dos tokens |
-| `CORS_ORIGINS` | Origem(ns) permitida(s) para CORS (ex: URL do Vercel) |
-
-## Rodando localmente
-
-### Com Docker Compose
-
-```bash
-docker-compose up -d
-```
-
-### Sem Docker
-
-```bash
-# 1. Configure as variáveis de ambiente
-export DATABASE_URL=jdbc:postgresql://localhost:5432/financialcontrol
-export DATABASE_USERNAME=postgres
-export DATABASE_PASSWORD=sua_senha
-export JWT_SECRET=sua_chave_secreta
-export CORS_ORIGINS=http://localhost:5500
-
-# 2. Rode a aplicação
-./mvnw spring-boot:run
-```
-
-No primeiro boot, o `BootstrapUsuario` cria automaticamente o usuário administrador.
+| `CORS_ORIGINS` | Origem(ns) permitida(s) para CORS (separadas por vírgula) |
 
 ## Deploy
 
-- **Backend** — Render (Docker, imagem `eclipse-temurin:17`)
+Hospedado em VPS Linux (Ubuntu 24.04) com infraestrutura própria:
+
+- **Backend** — Docker container com Spring Boot, atrás de Nginx como reverse proxy
+- **Banco de dados** — PostgreSQL 16 em container Docker com volume persistente
+- **SSL** — Certificado HTTPS via Let's Encrypt (Certbot)
 - **Frontend** — Vercel (HTML/CSS/JS estático)
 
-JVM configurada para ambientes com memória limitada:
+### Subindo com Docker Compose
 
-```
-JAVA_OPTS=-Xmx512m -Xms256m
+```bash
+git clone https://github.com/eduardo-Ciudad/controle-financeiro-lab.git
+cd controle-financeiro-lab
+# Configure as variáveis de ambiente no docker-compose.yml
+docker compose up -d --build
 ```
 
-> Após o deploy, defina `CORS_ORIGINS` com a URL do Vercel para liberar as requisições do frontend.
+### Rodando localmente sem Docker
+
+```bash
+# Configure o application.properties com seu banco local
+./mvnw spring-boot:run
+```
 
 ## Endpoints principais
 
 | Módulo | Base path | Operações |
 |---|---|---|
-| Auth | `/auth` | Registro, login, refresh token |
+| Auth | `/auth` | Registro (`POST /auth/register`), login (`POST /auth/login`) |
 | Clientes | `/clientes` | CRUD completo |
 | Fornecedores | `/fornecedores` | CRUD completo |
 | Produtos | `/produtos` | CRUD com preço de custo/venda |
@@ -125,5 +107,4 @@ JAVA_OPTS=-Xmx512m -Xms256m
 **Eduardo Ciudad** — Desenvolvedor Backend Java
 
 - GitHub: [github.com/eduardo-Ciudad](https://github.com/eduardo-Ciudad)
-- LinkedIn: [linkedin.com/in/eduardociudadf](https://linkedin.com/in/eduardociudadf/)
-- 
+- LinkedIn: [linkedin.com/in/eduardociudadf](https://linkedin.com/in/eduardociudadf/)- 
