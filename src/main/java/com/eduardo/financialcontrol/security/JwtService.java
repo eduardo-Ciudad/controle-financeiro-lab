@@ -42,9 +42,6 @@ public class JwtService {
         return parseClaims(token).getSubject();
     }
 
-    public String extrairRole(String token) {
-        return parseClaims(token).get("role", String.class);
-    }
 
     public boolean isTokenValido(String token) {
         try {
