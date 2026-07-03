@@ -9,7 +9,9 @@ RUN ./mvnw package -DskipTests -q
 
 FROM eclipse-temurin:17-jre-alpine
 WORKDIR /app
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 COPY --from=build /app/target/*.jar app.jar
+USER appuser
 EXPOSE 8080
 ENTRYPOINT ["java", \
   "-Xmx512m", \
