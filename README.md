@@ -13,6 +13,7 @@ Sistema de gestão financeira multi-tenant evolução do projeto freelance origi
 - **Let's Encrypt** — certificado SSL/TLS
 - **Swagger / OpenAPI** — documentação interativa
 
+
 ## Arquitetura
 
 ```
