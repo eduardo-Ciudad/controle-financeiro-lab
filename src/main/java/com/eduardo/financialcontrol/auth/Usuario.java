@@ -32,6 +32,15 @@ public class Usuario {
     @Column(name = "criado_em", nullable = false, updatable = false)
     private OffsetDateTime criadoEm = OffsetDateTime.now();
 
+    @Column(name = "email_verificado", nullable = false)
+    private Boolean emailVerificado = false;
+
+    @Column(name = "token_verificacao", length = 64)
+    private String tokenVerificacao;
+
+    @Column(name = "token_verificacao_expira")
+    private OffsetDateTime tokenVerificacaoExpira;
+
     public Usuario(String nome, String email, String senhaHash) {
         this.nome = nome;
         this.email = email;
