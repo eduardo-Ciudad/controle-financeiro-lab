@@ -19,7 +19,7 @@ public class EmailService {
     @Value("${spring.mail.username}")
     private String remetente;
 
-    @Value("${cors.origins}")
+    @Value("${app.frontend-url}")
     private String frontendUrl;
 
     @Async
