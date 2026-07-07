@@ -31,6 +31,7 @@ class AuthServiceTest {
         // Arrange
         Usuario usuario = new Usuario("Admin", "admin@test.com", "hash");
         usuario.setAtivo(true);
+        usuario.setEmailVerificado(true);
         LoginRequest request = new LoginRequest("admin@test.com", "senha123");
 
         when(usuarioRepository.findByEmail("admin@test.com")).thenReturn(Optional.of(usuario));
