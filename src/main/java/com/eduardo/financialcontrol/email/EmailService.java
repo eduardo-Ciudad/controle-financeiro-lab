@@ -45,4 +45,55 @@ public class EmailService {
             log.error("Erro ao enviar email de verificação para {}: {}", destinatario, e.getMessage());
         }
     }
+
+    @Async
+    public void enviarEmailAlteracaoSenha(String destinatario, String token) {
+        try {
+            String link = frontendUrl + "/confirmar-alteracao-senha.html?token=" + token;
+
+            SimpleMailMessage message = new SimpleMailMessage();
+            message.setFrom(remetente);
+            message.setTo(destinatario);
+            message.setSubject("Confirme a alteração de senha - Controle Financeiro");
+            message.setText(
+                    "Olá!\n\n" +
+                            "Recebemos uma solicitação para alterar a senha da sua conta no Controle Financeiro.\n\n" +
+                            "Para confirmar a alteração, clique no link abaixo:\n\n" +
+                            link + "\n\n" +
+                            "Este link expira em 1 hora.\n\n" +
+                            "Se você não solicitou essa alteração, ignore este email e sua senha permanecerá a mesma."
+            );
+
+            mailSender.send(message);
+            log.info("Email de alteração de senha enviado para {}", destinatario);
+        } catch (Exception e) {
+            log.error("Erro ao enviar email de alteração de senha para {}: {}", destinatario, e.getMessage());
+        }
+    }
+
+
+    @Async
+    public void enviarEmailResetSenha(String destinatario, String token) {
+        try {
+            String link = frontendUrl + "/resetar-senha.html?token=" + token;
+
+            SimpleMailMessage message = new SimpleMailMessage();
+            message.setFrom(remetente);
+            message.setTo(destinatario);
+            message.setSubject("Recuperação de senha - Controle Financeiro");
+            message.setText(
+                    "Olá!\n\n" +
+                            "Recebemos uma solicitação para recuperar a senha da sua conta no Controle Financeiro.\n\n" +
+                            "Para criar uma nova senha, clique no link abaixo:\n\n" +
+                            link + "\n\n" +
+                            "Este link expira em 1 hora.\n\n" +
+                            "Se você não solicitou essa recuperação, ignore este email."
+            );
+
+            mailSender.send(message);
+            log.info("Email de reset de senha enviado para {}", destinatario);
+        } catch (Exception e) {
+            log.error("Erro ao enviar email de reset de senha para {}: {}", destinatario, e.getMessage());
+        }
+    }
 }
