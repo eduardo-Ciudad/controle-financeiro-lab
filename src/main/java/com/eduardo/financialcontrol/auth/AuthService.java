@@ -1,5 +1,6 @@
 package com.eduardo.financialcontrol.auth;
 
+import com.eduardo.financialcontrol.auth.dto.AlterarSenhaRequest;
 import com.eduardo.financialcontrol.auth.dto.LoginRequest;
 import com.eduardo.financialcontrol.auth.dto.RegisterRequest;
 import com.eduardo.financialcontrol.auth.dto.TokenResponse;
@@ -11,6 +12,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.time.OffsetDateTime;
+import java.util.UUID;
+
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -20,6 +25,7 @@ public class AuthService {
     private final BCryptPasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final EmailService emailService;
+    private final PasswordTokenRepository passwordTokenRepository;
 
     @Transactional(readOnly = true)
     public TokenResponse login(LoginRequest request) {
@@ -90,5 +96,57 @@ public class AuthService {
         usuarioRepository.save(usuario);
 
         emailService.enviarEmailVerificacao(usuario.getEmail(), novoToken);
+    }
+
+    @Transactional
+    public void solicitarAlteracaoSenha(AlterarSenhaRequest request, Usuario usuario) {
+        if ( !passwordEncoder.matches(request.senhaAtual(),  usuario.getSenhaHash())) {
+            throw new RegraDeNegocioException("Senha atual está incorreta.");
+        }
+
+        if (passwordEncoder.matches(request.novaSenha(), usuario.getSenhaHash())) {
+            throw new RegraDeNegocioException("erro em atualizar a senha");
+        }
+
+        String token = UUID.randomUUID().toString().replace("-", "");
+
+        PasswordToken passwordToken = new PasswordToken(
+                usuario,
+                token,
+                TipoTokenSenha.ALTERACAO,
+                OffsetDateTime.now().plusHours(1)
+        );
+        passwordToken.setNovaSenhaHash(passwordEncoder.encode(request.novaSenha()));
+        passwordTokenRepository.save(passwordToken);
+
+        emailService.enviarEmailAlteracaoSenha(usuario.getEmail(), token);
+    }
+
+    @Transactional
+    public void confirmarAlteracaoSenha(String token) {
+        PasswordToken passwordToken = buscarTokenValido(token, TipoTokenSenha.ALTERACAO);
+
+        Usuario usuario = passwordToken.getUsuario();
+        usuario.setSenhaHash(passwordToken.getNovaSenhaHash());
+        usuarioRepository.save(usuario);
+
+        passwordToken.setUtilizado(true);
+        passwordTokenRepository.save(passwordToken);
+    }
+
+
+    private PasswordToken buscarTokenValido(String token, TipoTokenSenha tipoEsperado) {
+        PasswordToken passwordToken = passwordTokenRepository.findByTokenAndUtilizadoFalse(token)
+                .orElseThrow(() -> new RegraDeNegocioException("Token inválido ou já utilizado."));
+
+        if (passwordToken.isExpirado()) {
+            throw new RegraDeNegocioException("Token expirado. Solicite novamente.");
+        }
+
+        if (passwordToken.getTipo() != tipoEsperado) {
+            throw new RegraDeNegocioException("Token inválido.");
+        }
+
+        return passwordToken;
     }
 }
