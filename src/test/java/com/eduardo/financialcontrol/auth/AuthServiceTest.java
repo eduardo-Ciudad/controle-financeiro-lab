@@ -122,7 +122,7 @@ class AuthServiceTest {
         // Act & Assert
         assertThatThrownBy(() -> authService.solicitarAlteracaoSenha(request, usuario))
                 .isInstanceOf(RegraDeNegocioException.class)
-                .hasMessage("Senha atual incorreta.");
+                .hasMessage("Senha atual está incorreta.");
 
         verify(passwordTokenRepository, never()).save(any());
         verify(emailService, never()).enviarEmailAlteracaoSenha(anyString(), anyString());
@@ -140,6 +140,55 @@ class AuthServiceTest {
         // Act & Assert
         assertThatThrownBy(() -> authService.solicitarAlteracaoSenha(request, usuario))
                 .isInstanceOf(RegraDeNegocioException.class)
-                .hasMessage("A nova senha deve ser diferente da senha atual.");
+                .hasMessage("erro em atualizar a senha");
+    }
+
+    @Test
+    void confirmarAlteracaoSenha_tokenValido_alteraSenha() {
+        // Arrange
+        Usuario usuario = new Usuario("Admin", "admin@test.com", "hashAntigo");
+        PasswordToken token = new PasswordToken(usuario, "token123", TipoTokenSenha.ALTERACAO,
+                OffsetDateTime.now().plusHours(1));
+        token.setNovaSenhaHash("hashNovo");
+
+        when(passwordTokenRepository.findByTokenAndUtilizadoFalse("token123"))
+                .thenReturn(Optional.of(token));
+
+        // Act
+        authService.confirmarAlteracaoSenha("token123");
+
+        // Assert
+        assertThat(usuario.getSenhaHash()).isEqualTo("hashNovo");
+        assertThat(token.getUtilizado()).isTrue();
+        verify(usuarioRepository).save(usuario);
+        verify(passwordTokenRepository).save(token);
+    }
+
+    @Test
+    void confirmarAlteracaoSenha_tokenInvalido_lancaExcecao() {
+        // Arrange
+        when(passwordTokenRepository.findByTokenAndUtilizadoFalse("tokenInvalido"))
+                .thenReturn(Optional.empty());
+
+        // Act & Assert
+        assertThatThrownBy(() -> authService.confirmarAlteracaoSenha("tokenInvalido"))
+                .isInstanceOf(RegraDeNegocioException.class)
+                .hasMessage("Token inválido ou já utilizado.");
+    }
+
+    @Test
+    void confirmarAlteracaoSenha_tokenExpirado_lancaExcecao() {
+        // Arrange
+        Usuario usuario = new Usuario("Admin", "admin@test.com", "hash");
+        PasswordToken token = new PasswordToken(usuario, "tokenExpirado", TipoTokenSenha.ALTERACAO,
+                OffsetDateTime.now().minusHours(1));
+
+        when(passwordTokenRepository.findByTokenAndUtilizadoFalse("tokenExpirado"))
+                .thenReturn(Optional.of(token));
+
+        // Act & Assert
+        assertThatThrownBy(() -> authService.confirmarAlteracaoSenha("tokenExpirado"))
+                .isInstanceOf(RegraDeNegocioException.class)
+                .hasMessage("Token expirado. Solicite novamente.");
     }
 }
