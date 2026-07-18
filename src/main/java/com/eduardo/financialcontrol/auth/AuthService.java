@@ -1,9 +1,6 @@
 package com.eduardo.financialcontrol.auth;
 
-import com.eduardo.financialcontrol.auth.dto.AlterarSenhaRequest;
-import com.eduardo.financialcontrol.auth.dto.LoginRequest;
-import com.eduardo.financialcontrol.auth.dto.RegisterRequest;
-import com.eduardo.financialcontrol.auth.dto.TokenResponse;
+import com.eduardo.financialcontrol.auth.dto.*;
 import com.eduardo.financialcontrol.email.EmailService;
 import com.eduardo.financialcontrol.security.JwtService;
 import com.eduardo.financialcontrol.shared.exception.RegraDeNegocioException;
@@ -120,6 +117,36 @@ public class AuthService {
         passwordTokenRepository.save(passwordToken);
 
         emailService.enviarEmailAlteracaoSenha(usuario.getEmail(), token);
+    }
+
+    @Transactional
+    public void esqueciSenha(String email) {
+        usuarioRepository.findByEmail(email).ifPresent(usuario -> {
+            String token = UUID.randomUUID().toString().replace("-", "");
+
+            PasswordToken passwordToken = new PasswordToken(
+                    usuario,
+                    token,
+                    TipoTokenSenha.RESET,
+                    OffsetDateTime.now().plusHours(1)
+            );
+            passwordTokenRepository.save(passwordToken);
+
+            emailService.enviarEmailResetSenha(usuario.getEmail(), token);
+
+        });
+    }
+
+    @Transactional
+    public void resetarSenha(ResetarSenhaRequest request) {
+        PasswordToken passwordToken = buscarTokenValido(request.token(),  TipoTokenSenha.RESET);
+
+        Usuario usuario = passwordToken.getUsuario();
+        usuario.setSenhaHash(passwordEncoder.encode(request.novaSenha()));
+        usuarioRepository.save(usuario);
+
+        passwordToken.setUtilizado(true);
+        passwordTokenRepository.save(passwordToken);
     }
 
     @Transactional
