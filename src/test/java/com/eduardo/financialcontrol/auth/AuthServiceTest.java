@@ -2,6 +2,7 @@ package com.eduardo.financialcontrol.auth;
 
 import com.eduardo.financialcontrol.auth.dto.AlterarSenhaRequest;
 import com.eduardo.financialcontrol.auth.dto.LoginRequest;
+import com.eduardo.financialcontrol.auth.dto.ResetarSenhaRequest;
 import com.eduardo.financialcontrol.auth.dto.TokenResponse;
 import com.eduardo.financialcontrol.email.EmailService;
 import com.eduardo.financialcontrol.security.JwtService;
@@ -218,4 +219,56 @@ class AuthServiceTest {
         verify(passwordTokenRepository, never()).save(any());
         verify(emailService, never()).enviarEmailResetSenha(anyString(), anyString());
     }
+
+    @Test
+    void resetarSenha_tokenValido_alteraSenha() {
+        // Arrange
+        Usuario usuario = new Usuario("Admin", "admin@test.com", "hashAntigo");
+        PasswordToken token = new PasswordToken(usuario, "tokenReset", TipoTokenSenha.RESET,
+                OffsetDateTime.now().plusHours(1));
+        ResetarSenhaRequest request = new ResetarSenhaRequest("tokenReset", "novaSenha123");
+
+        when(passwordTokenRepository.findByTokenAndUtilizadoFalse("tokenReset"))
+                .thenReturn(Optional.of(token));
+        when(passwordEncoder.encode("novaSenha123")).thenReturn("hashNovo");
+
+        // Act
+        authService.resetarSenha(request);
+
+        // Assert
+        assertThat(usuario.getSenhaHash()).isEqualTo("hashNovo");
+        assertThat(token.getUtilizado()).isTrue();
+        verify(usuarioRepository).save(usuario);
+    }
+
+    @Test
+    void resetarSenha_tokenInvalido_lancaExcecao() {
+        // Arrange
+        ResetarSenhaRequest request = new ResetarSenhaRequest("tokenInvalido", "novaSenha123");
+        when(passwordTokenRepository.findByTokenAndUtilizadoFalse("tokenInvalido"))
+                .thenReturn(Optional.empty());
+
+        // Act & Assert
+        assertThatThrownBy(() -> authService.resetarSenha(request))
+                .isInstanceOf(RegraDeNegocioException.class)
+                .hasMessage("Token inválido ou já utilizado.");
+    }
+
+    @Test
+    void resetarSenha_tokenExpirado_lancaExcecao() {
+        // Arrange
+        Usuario usuario = new Usuario("Admin", "admin@test.com", "hash");
+        PasswordToken token = new PasswordToken(usuario, "tokenExpirado", TipoTokenSenha.RESET,
+                OffsetDateTime.now().minusHours(1));
+        ResetarSenhaRequest request = new ResetarSenhaRequest("tokenExpirado", "novaSenha123");
+
+        when(passwordTokenRepository.findByTokenAndUtilizadoFalse("tokenExpirado"))
+                .thenReturn(Optional.of(token));
+
+        // Act & Assert
+        assertThatThrownBy(() -> authService.resetarSenha(request))
+                .isInstanceOf(RegraDeNegocioException.class)
+                .hasMessage("Token expirado. Solicite novamente.");
+    }
+
 }
