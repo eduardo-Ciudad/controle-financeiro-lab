@@ -191,4 +191,31 @@ class AuthServiceTest {
                 .isInstanceOf(RegraDeNegocioException.class)
                 .hasMessage("Token expirado. Solicite novamente.");
     }
+
+    @Test
+    void esqueciSenha_emailExiste_enviaEmail() {
+        // Arrange
+        Usuario usuario = new Usuario("Admin", "admin@test.com", "hash");
+        when(usuarioRepository.findByEmail("admin@test.com")).thenReturn(Optional.of(usuario));
+
+        // Act
+        authService.esqueciSenha("admin@test.com");
+
+        // Assert
+        verify(passwordTokenRepository).save(any(PasswordToken.class));
+        verify(emailService).enviarEmailResetSenha(eq("admin@test.com"), anyString());
+    }
+
+    @Test
+    void esqueciSenha_emailNaoExiste_naoLancaExcecao() {
+        // Arrange
+        when(usuarioRepository.findByEmail("nao@existe.com")).thenReturn(Optional.empty());
+
+        // Act
+        authService.esqueciSenha("nao@existe.com");
+
+        // Assert
+        verify(passwordTokenRepository, never()).save(any());
+        verify(emailService, never()).enviarEmailResetSenha(anyString(), anyString());
+    }
 }
