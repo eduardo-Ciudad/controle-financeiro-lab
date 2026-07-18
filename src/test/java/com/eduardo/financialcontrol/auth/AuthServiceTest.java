@@ -1,8 +1,11 @@
 package com.eduardo.financialcontrol.auth;
 
+import com.eduardo.financialcontrol.auth.dto.AlterarSenhaRequest;
 import com.eduardo.financialcontrol.auth.dto.LoginRequest;
 import com.eduardo.financialcontrol.auth.dto.TokenResponse;
+import com.eduardo.financialcontrol.email.EmailService;
 import com.eduardo.financialcontrol.security.JwtService;
+import com.eduardo.financialcontrol.shared.exception.RegraDeNegocioException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -24,6 +27,9 @@ class AuthServiceTest {
     @Mock UsuarioRepository usuarioRepository;
     @Mock BCryptPasswordEncoder passwordEncoder;
     @Mock JwtService jwtService;
+    @Mock
+    EmailService emailService;
+    @Mock PasswordTokenRepository passwordTokenRepository;
     @InjectMocks AuthService authService;
 
     @Test
@@ -85,5 +91,55 @@ class AuthServiceTest {
         // Act & Assert
         assertThatThrownBy(() -> authService.login(request))
                 .isInstanceOf(BadCredentialsException.class);
+    }
+
+    @Test
+    void solicitarAlteracaoSenha_senhaAtualCorreta_enviaEmail() {
+        // Arrange
+        Usuario usuario = new Usuario("Admin", "admin@test.com", "hashAtual");
+        AlterarSenhaRequest request = new AlterarSenhaRequest("senhaAtual", "novaSenha123");
+
+        when(passwordEncoder.matches("senhaAtual", "hashAtual")).thenReturn(true);
+        when(passwordEncoder.matches("novaSenha123", "hashAtual")).thenReturn(false);
+        when(passwordEncoder.encode("novaSenha123")).thenReturn("hashNovo");
+
+        // Act
+        authService.solicitarAlteracaoSenha(request, usuario);
+
+        // Assert
+        verify(passwordTokenRepository).save(any(PasswordToken.class));
+        verify(emailService).enviarEmailAlteracaoSenha(eq("admin@test.com"), anyString());
+    }
+
+    @Test
+    void solicitarAlteracaoSenha_senhaAtualIncorreta_lancaExcecao() {
+        // Arrange
+        Usuario usuario = new Usuario("Admin", "admin@test.com", "hashAtual");
+        AlterarSenhaRequest request = new AlterarSenhaRequest("senhaErrada", "novaSenha123");
+
+        when(passwordEncoder.matches("senhaErrada", "hashAtual")).thenReturn(false);
+
+        // Act & Assert
+        assertThatThrownBy(() -> authService.solicitarAlteracaoSenha(request, usuario))
+                .isInstanceOf(RegraDeNegocioException.class)
+                .hasMessage("Senha atual incorreta.");
+
+        verify(passwordTokenRepository, never()).save(any());
+        verify(emailService, never()).enviarEmailAlteracaoSenha(anyString(), anyString());
+    }
+
+    @Test
+    void solicitarAlteracaoSenha_novaSenhaIgualAtual_lancaExcecao() {
+        // Arrange
+        Usuario usuario = new Usuario("Admin", "admin@test.com", "hashAtual");
+        AlterarSenhaRequest request = new AlterarSenhaRequest("senhaAtual", "senhaAtual");
+
+        when(passwordEncoder.matches("senhaAtual", "hashAtual")).thenReturn(true);
+        when(passwordEncoder.matches("senhaAtual", "hashAtual")).thenReturn(true);
+
+        // Act & Assert
+        assertThatThrownBy(() -> authService.solicitarAlteracaoSenha(request, usuario))
+                .isInstanceOf(RegraDeNegocioException.class)
+                .hasMessage("A nova senha deve ser diferente da senha atual.");
     }
 }
