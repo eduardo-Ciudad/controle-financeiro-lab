@@ -40,6 +40,9 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/auth/register").permitAll()
                         .requestMatchers(HttpMethod.GET, "/auth/verificar").permitAll()
                         .requestMatchers(HttpMethod.POST, "/auth/reenviar-verificacao").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/auth/confirmar-alteracao-senha").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/auth/esqueci-senha").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/auth/resetar-senha").permitAll()
                         .requestMatchers(
                                 "/swagger-ui/**",
                                 "/swagger-ui.html",
